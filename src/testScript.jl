@@ -1,10 +1,8 @@
-cd("C:\\Users\\jonathan\\Documents\\UniOfOxford\\DPhilWork\\IntensityCorrection\\BayesianFilterBased\\src")
-
-# include("ReciprocalSpaceUtils.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
-# include("ElementDatabase.jl")
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
 
 ######### Inputs ##########
 const xrayEnergy = 12.7 #Set X-ray Energy
