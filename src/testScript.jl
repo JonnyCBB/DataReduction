@@ -1,8 +1,8 @@
-# include("ReciprocalSpaceUtils.jl")
-# include("ElementDatabase.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
 
 ######### Inputs ##########
 const xrayEnergy = 12.7 #Set X-ray Energy
@@ -13,7 +13,7 @@ const sequenceFileLocation = "SequenceFiles\\2BN3fasta.txt"
 # const sequenceFileLocation = "SequenceFiles\\4X4Vfasta.txt"
 const separateSymEquivs = true #Merge symmetry equivalents or keep them separate.
 const sigIDiffTol = 0.1 #Tolerance level for difference between sigIpr and sigIsum
-const numOfRefs = 1000
+const numOfRefs = 1000 #Number of reflections to be used in data reduction analysis.
 
 const intensityType = "Combined" #How to deal with Ipr and Isum
 const numMtzColsFor1stRefLine = 9 #Number of columns in 1st MTZ Dump line for reflection information
@@ -21,6 +21,7 @@ const numMtzColsFor2ndand3rdRefLines = 4 #Number of columns in 2nd/3rd MTZ Dump 
 const estimateTotalIntensityFromPartialRef = true #Estimate the total intensity from partial information.
 const additionalElements = "Zn 2 S 6"
 
+const minRefInResBin = 5 #choose minimum number of reflections in resolution bin.
 ################################################################################
 #Section: Inputs - Extract sequence information
 #-------------------------------------------------------------------------------
@@ -54,7 +55,8 @@ elementDict = createElementDictionary()
 ################################################################################
 #Section: Sort the resolution Bins
 #-------------------------------------------------------------------------------
-
+resbins = sortResolutionBins(hklList, minRefInResBin)
+sortHKLIntoResBins!(resbins, hklList)
 #End Section: Sort the resolution Bins
 ################################################################################
 

@@ -56,6 +56,15 @@ type Reflection
     end
 end
 
+type ResBin
+    minRes::Float64
+    maxRes::Float64
+    numOfRef::Int64
+    meanIntensity::Float64
+    stdDev::Float64
+    hkls::Array{Vector{Int64},1}
+end
+ResBin(minRes::Float64, maxRes::Float64, numOfRef::Int64) = ResBin(minRes, maxRes, numOfRef, 0.0, 0.0, Array(Vector{Int64},1))
 
 
 function convertDirectToReciprocal(directUnitCell::Unitcell)
@@ -162,6 +171,64 @@ function removeSysAbs!(reflectionList::Dict{Vector{Int64},Reflection})
     for key in keys(reflectionList)
         if reflectionList[key].isSysAbs
             delete!(reflectionList, key)
+        end
+    end
+end
+
+function sortResolutionBins(reflectionList::Dict{Vector{Int64},Reflection}, minRefPerBin::Int64)
+    resbins = ResBin[]
+    counter = 1
+    numOfRef = length(reflectionList)
+    resolutionArray = Array(Float64,numOfRef)
+
+    #First we need to sort the resolution values into increasing resolution order
+    #(i.e. from biggest resolution number to smallest)
+    for key in keys(reflectionList)
+        resolutionArray[counter] = reflectionList[key].resolution
+        counter += 1
+    end
+    resolutionArray = sort(resolutionArray, rev=true)
+
+    #Now we can sort the resolution values
+    previousRes = resolutionArray[1]
+    numOfRefInResBinCounter = 0
+    minRes = previousRes
+    for i = 1:numOfRef
+        if numOfRefInResBinCounter >= minRefPerBin && resolutionArray[i] != previousRes
+            maxRes = previousRes
+            resbin = ResBin(minRes, maxRes, numOfRefInResBinCounter)
+            push!(resbins, resbin)
+            minRes = previousRes
+            numOfRefInResBinCounter = 0
+        end
+        numOfRefInResBinCounter += 1
+        previousRes = resolutionArray[i]
+    end
+    return resbins
+end
+
+function sortHKLIntoResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vector{Int64},Reflection})
+    minRes = resbins[1].minRes
+    for resbin in resbins
+        resbin.hkls = Array(Vector{Int64}, resbin.numOfRef)
+        refCounter = 1
+        for key in keys(reflectionList)
+            reflection = reflectionList[key]
+            if reflection.hkl == [0,0,0] && resbin.minRes == Inf
+                resbin.hkls[refCounter] = reflection.hkl
+                if refCounter == resbin.numOfRef
+                    break
+                else
+                    refCounter += 1
+                end
+            elseif resbin.minRes > reflection.resolution ≥ resbin.maxRes || reflection.resolution == minRes
+                resbin.hkls[refCounter] = reflection.hkl
+                if refCounter == resbin.numOfRef
+                    break
+                else
+                    refCounter += 1
+                end
+            end
         end
     end
 end
