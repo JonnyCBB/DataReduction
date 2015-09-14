@@ -67,12 +67,16 @@ end
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
 function combineObsIntensity(Ipr::Float64, Isum::Float64, LP::Float64)
-    Imid = (Ipr + Isum)/2
-    Iraw = Imid * LP
-    Ipower = 3
-    w = 1 / (1 + (Iraw/Imid)^Ipower)
-    Icombined = w*Ipr + (1-w)*Isum
-    return Icombined
+    if abs(Ipr + Isum) < 0.001
+        return Ipr
+    else
+        Imid = (Ipr + Isum)/2
+        Iraw = Imid * LP
+        Ipower = 3
+        w = 1 / (1 + (Iraw/Imid)^Ipower)
+        Icombined = w*Ipr + (1-w)*Isum
+        return Icombined
+    end
 end
 
 ################################################################################
@@ -445,12 +449,17 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
                                         if imageNumber == image + 1 || imageNumber == image - 1 #Check is the image is consecutive
                                             #If it is consecutive then update the corresponding observation information.
                                             sameObservation = true
-                                            refObservation.rotCentroid += rot
-                                            refObservation.fractionCalc += fractionCalc
-                                            refObservation.intensity += intensity
-                                            refObservation.sigI += sigIsum^2
-                                            push!(refObservation.imageNums, imageNumber)
-                                            hklList[origHKL].observations[obsNum] = refObservation
+                                            if isnan(rot) || isnan(intensity) || isnan(sigIsum) || isnan(fractionCalc)
+                                                @printf("**************************WARNING**************************\n")
+                                                @printf("Partial observation of reflection [%d,%d,%d] on image %d has NaN value.\n\n", origHKL[1], origHKL[2], origHKL[3], imageNumber)
+                                            else
+                                                refObservation.rotCentroid += rot
+                                                refObservation.fractionCalc += fractionCalc
+                                                refObservation.intensity += intensity
+                                                refObservation.sigI += sigIsum^2
+                                                push!(refObservation.imageNums, imageNumber)
+                                                hklList[origHKL].observations[obsNum] = refObservation
+                                            end
                                             break
                                         end
                                     end
