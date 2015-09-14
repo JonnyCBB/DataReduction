@@ -62,10 +62,9 @@ type ResBin
     maxRes::Float64
     numOfRef::Int64
     meanIntensity::Float64
-    stdDev::Float64
     hkls::Array{Vector{Int64},1}
 end
-ResBin(minRes::Float64, maxRes::Float64, numOfRef::Int64) = ResBin(minRes, maxRes, numOfRef, 0.0, 0.0, Array(Vector{Int64},1))
+ResBin(minRes::Float64, maxRes::Float64, numOfRef::Int64) = ResBin(minRes, maxRes, numOfRef, 0.0, Array(Vector{Int64},1))
 
 
 function convertDirectToReciprocal(directUnitCell::Unitcell)
