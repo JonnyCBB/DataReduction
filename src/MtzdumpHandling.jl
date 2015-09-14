@@ -94,7 +94,7 @@ volumeRatio(penetrationFraction::Float64) = volumeRatio(penetrationFraction, 1.0
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function parseMTZDumpOutput(mtzDumpOutput::ASCIIString)
+function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
     ################################################################################
     #Parameter types can be annotated if necessary to save memory if that
     #becomes an issue.
@@ -128,6 +128,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString)
     refLine = 0
     origHKL = [0, 0, 0]
     imageNumber = 0
+    misymNum = 0
     Isum, sigIsum = 0.0, 0.0
     Ipr, sigIpr = 0.0, 0.0
     fractionCalc = 0.0
@@ -321,6 +322,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString)
                 if length(nonEmptyLine) == numMtzColsFor1stRefLine #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
                     refLine = 1
                     hkl = [parse(Int,nonEmptyLine[colNumH]), parse(Int,nonEmptyLine[colNumK]), parse(Int,nonEmptyLine[colNumL])]
+                    misymNum = parse(Float64, nonEmptyLine[colNumMIsym])
                     if separateSymEquivs #Check if we want to keep symmetry equivalents separate.
                         ############################################################
                         #Mini Section: Get original HKL indices
@@ -330,7 +332,6 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString)
                         #information given on the CCP4 MTZ Format page here:
                         #http://www.ccp4.ac.uk/html/mtzformat.html
                         Iplus = false
-                        misymNum = parse(Float64, nonEmptyLine[colNumMIsym])
                         isym = misymNum
                         if isym > 256
                             isym = isym - 256
@@ -375,7 +376,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString)
                     end
                 else
                     #If the number of columns is not the same as the expected ones then this throws an error because the parser will fail in that case.
-                    error("The MTZ Dump output doesn't have %d columns for the reflection line.\nThis means the reflections in the file will not be parsed properly\n Contact elspeth.garman@bioch.ox.ac.uk to sort out the MTZ Dump parser for your case.", numMtzColsFor1stRefLine)
+                    error("The MTZ Dump output doesn't have %d columns for the reflection line.\nThis means the reflections in the file will not be parsed properly\nContact elspeth.garman@bioch.ox.ac.uk to sort out the MTZ Dump parser for your case.\n\n", numMtzColsFor1stRefLine)
                 end
             elseif contains(nonEmptyLine[1], ".")
                 #Check that the number of columns for the reflection information is correct.
@@ -423,7 +424,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString)
                         #observation and so we create a new observation object and
                         #add it to the array.
                         if isempty(hklList[origHKL].observations)
-                            push!(hklList[origHKL].observations, ReflectionObservation(rot, fractionCalc, intensity, sigIsum^2, [imageNumber]))
+                            push!(hklList[origHKL].observations, ReflectionObservation(rot, fractionCalc, misymNum, intensity, sigIsum^2, [imageNumber]))
                         else
                             #If there are existing observation objects for the
                             #reflection then we need to loop through all
@@ -432,23 +433,26 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString)
                             #criteria to decide if the partial observation is part
                             #of an existing observation object is: image at which
                             #the partial observation was observed is a consectuive
-                            #image of an existing observation object.
+                            #image of an existing observation object AND it has
+                            #the same M/ISYM number.
                             numOfExistingObs = length(hklList[origHKL].observations)
                             sameObservation = false
                             for obsNum = 1:numOfExistingObs #Loop through observations
+                                refObservation = hklList[origHKL].observations[obsNum]
                                 imagesOfObs = hklList[origHKL].observations[obsNum].imageNums
                                 for image in imagesOfObs #Loop through images
-                                    if imageNumber == image + 1 || imageNumber == image - 1 #Check is the image is consecutive
-                                        #If it is consecutive then update the corresponding observation information.
-                                        sameObservation = true
-                                        refObservation = hklList[origHKL].observations[obsNum]
-                                        refObservation.rotCentroid += rot
-                                        refObservation.fractionCalc += fractionCalc
-                                        refObservation.intensity += intensity
-                                        refObservation.sigI += sigIsum^2
-                                        push!(refObservation.imageNums, imageNumber)
-                                        hklList[origHKL].observations[obsNum] = refObservation
-                                        break
+                                    if misymNum == refObservation.misym #Check that the M/ISYM number is the same
+                                        if imageNumber == image + 1 || imageNumber == image - 1 #Check is the image is consecutive
+                                            #If it is consecutive then update the corresponding observation information.
+                                            sameObservation = true
+                                            refObservation.rotCentroid += rot
+                                            refObservation.fractionCalc += fractionCalc
+                                            refObservation.intensity += intensity
+                                            refObservation.sigI += sigIsum^2
+                                            push!(refObservation.imageNums, imageNumber)
+                                            hklList[origHKL].observations[obsNum] = refObservation
+                                            break
+                                        end
                                     end
                                 end
                                 #First check if we've discovered that the current reflection record is a partial reflection whose observation object has
@@ -458,7 +462,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString)
                                 if sameObservation
                                     break
                                 elseif obsNum == numOfExistingObs && !sameObservation
-                                    push!(hklList[origHKL].observations, ReflectionObservation(rot, fractionCalc, intensity, sigIsum^2, [imageNumber]))
+                                    push!(hklList[origHKL].observations, ReflectionObservation(rot, fractionCalc, misymNum, intensity, sigIsum^2, [imageNumber]))
                                 end
                             end
                         end

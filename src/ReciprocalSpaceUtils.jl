@@ -10,6 +10,7 @@ end
 type ReflectionObservation
     rotCentroid::Float64
     fractionCalc::Float64
+    misym::Int64
     intensity::Float64
     sigI::Float64
     imageNums::Array{Uint16}
@@ -230,5 +231,65 @@ function sortHKLIntoResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vect
                 end
             end
         end
+    end
+end
+
+################################################################################
+#NEED TO COME BACK TO THIS LATER
+################################################################################
+function assignMeanIntensityToResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vector{Int64},Reflection}, f0SqrdDict::Dict{Float64, Float64})
+    binCounter = 1
+    for resbin in resbins
+        intensityArray = Array(Float64,resbin.numOfRef,1)
+        refCounter = 0
+        ########################################################################
+        #Section: Calculate the average intensity in resolution shells
+        #-----------------------------------------------------------------------
+        #If there is was no sequence file/opted not to use a sequence file to
+        #obtain the scattering factor information, then the average intensity
+        #for a resolution shell will be calculated and used as the mean expected
+        #intensity for the resolution shell. Note that this intensity is
+        #corrected for the expected intensity factor (denoted epsilon).
+        #Since there are many observations for a given reflection we use the
+        #intensity from the observation that gave the biggest measured
+        #intensity. The maximum is chosen because this will give the biggest
+        #variance to reflect our biggest level of uncertainty since we have not
+        #been given the atomic composition.
+        if isempty(atomDict)
+            for hkl in resbin.hkls
+                refCounter += 1
+                reflection = reflectionList[hkl]
+                obsNumWithMaxIntensity = 1
+                numRefObs = length(reflection.observations)
+                if numRefObs > 1
+                    for obsNum in 1:numRefObs
+                        observation = reflection.observations[obsNum]
+                        if observation.intensity > reflection.observations[obsNumWithMaxIntensity].intensity/reflection.epsilon
+                            obsNumWithMaxIntensity = obsNum
+                        end
+                    end
+                end
+                intensityArray[refCounter] = reflection.observations[obsNumWithMaxIntensity].intensity
+            end
+        #-----------------------------------------------------------------------
+        #If the sequence file has been given then the atomic scattering factors
+        #will have been available. So we can use the sum of the squared atomic
+        #scattering factors as an expected intensity estimate. These are stored
+        #in the f0SrqdDict. Since it is resolution dependent the keys are the
+        #corresponding scattering angles.
+        else
+            for hkl in resbin.hkls
+                refCounter += 1
+                reflection = reflectionList[hkl]
+                intensityArray[refCounter] = f0SqrdDict[reflection.scatteringAngle]
+            end
+        end
+
+        resbin.meanIntensity = mean(intensityArray)
+        resbin.stdDev = std(intensityArray)
+        resbins[binCounter] = resbin
+        binCounter += 1
+        #End Section: Calculate the average intensity in resolution shells
+        ########################################################################
     end
 end

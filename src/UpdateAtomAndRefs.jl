@@ -10,7 +10,7 @@ end
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function calcTotalf0(atomDict::Dict{ASCIIString, Int64}, scatteringAngles::Vector{Float64}, elementDict::Dict{ASCIIString, Element})
+function calcTotalf0Sqrd(atomDict::Dict{ASCIIString, Int64}, scatteringAngles::Vector{Float64}, elementDict::Dict{ASCIIString, Element})
     f0Dict = Dict{Float64, Float64}()
     for scatAngle in scatteringAngles
         f0::Float64 = 0.0
@@ -103,7 +103,11 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int64},Reflection}, im
                     #or with the current program. Not sure which so we'll alert the
                     #user with a warning message.
                     println("************************WARNING************************")
-                    @printf("Observation of reflection (%d,%d,%d) could not be allocated to an image\nPlease check that the rotation centroid of this reflection is a valid number.\nIf you're not sure what to do please contact elspeth.garman@bioch.ox.ac.uk with the problem.\n\n",hkl[1], hkl[2], hkl[3])
+                    @printf("Observation %d of reflection (%d,%d,%d) could not be allocated to an image\nPlease check that the rotation centroid of this reflection is a valid number.\nThe centroid calculated was %.3f.\nThe images checked to determine image for the centroid were:\n",obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid)
+                    for imageNum in refObservation.imageNums
+                        @printf("image number: %d. Rotation Start and stop: %.3f deg - %.3f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
+                    end
+                    @printf("Contact elspeth.garman@bioch.ox.ac.uk to sort out the MTZ Dump parser.\n\n")
                 end
 
                 #Only try to scale up intensity values if they are postive.

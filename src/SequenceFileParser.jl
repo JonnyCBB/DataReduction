@@ -747,18 +747,18 @@ function parseSeqFileLine!(atomOccurenceDict::Dict{ASCIIString, Int64}, residueT
     end
 end
 
-function getAtomicCompositon(sequenceFileLocation::ASCIIString)
+function getAtomicCompositon(sequenceFileLocation::ASCIIString, useSeqFile::Bool=true)
     atomOccurenceDict = Dict{ASCIIString, Int64}()
-    atomOccurenceDict["H"] = 0
-    atomOccurenceDict["C"] = 0
-    atomOccurenceDict["N"] = 0
-    atomOccurenceDict["O"] = 0
-    atomOccurenceDict["S"] = 0
-    atomOccurenceDict["P"] = 0
-    atomOccurenceDict["SE"] = 0
     residueType = ResidueType("AminoAcid")
     residues = createResidueDict()
-    if isfile(sequenceFileLocation)
+    if isfile(sequenceFileLocation) || useSeqFile
+        atomOccurenceDict["H"] = 0
+        atomOccurenceDict["C"] = 0
+        atomOccurenceDict["N"] = 0
+        atomOccurenceDict["O"] = 0
+        atomOccurenceDict["S"] = 0
+        atomOccurenceDict["P"] = 0
+        atomOccurenceDict["SE"] = 0
         open(sequenceFileLocation) do seqFile
             for line in eachline(seqFile)
                 parseSeqFileLine!(atomOccurenceDict, residueType, line, residues)
@@ -766,7 +766,6 @@ function getAtomicCompositon(sequenceFileLocation::ASCIIString)
         end
     else
         @printf("*************************WARNING**************************\nThe sequence file path given: '%s' can't be found.\nPlease check the given path.\nMeanwhile the program will proceed without the file...\n\n", sequenceFileLocation)
-        error("Currently there is no implementation to work without a sequence file. I need to get to this.")
     end
     return atomOccurenceDict
 end
