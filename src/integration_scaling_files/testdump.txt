@@ -1,0 +1,10 @@
+title all images exclude test
+scales &
+    ALL &
+    rotation Spacing 5
+    absorption 4 &
+    bfactor OFF
+output &
+    mtz UNMERGED &
+    scalepack MERGED UNMERGED
+dump ScalesTest.txt
