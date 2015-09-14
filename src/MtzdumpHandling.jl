@@ -6,7 +6,7 @@ using PyCall
 ########################## Types Declarations ###########################
 immutable MtzdumpParams
     inputFilename::ASCIIString
-    nref::Int8
+    nref::Int64
 end
 
 #########################################################################
