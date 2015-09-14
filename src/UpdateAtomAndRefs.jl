@@ -11,15 +11,15 @@ end
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
 function calcTotalf0Sqrd(atomDict::Dict{ASCIIString, Int64}, scatteringAngles::Vector{Float64}, elementDict::Dict{ASCIIString, Element})
-    f0Dict = Dict{Float64, Float64}()
+    f0SqrdDict = Dict{Float64, Float64}()
     for scatAngle in scatteringAngles
         f0::Float64 = 0.0
         for atom in keys(atomDict)
             f0 += elementDict[atom].f0[scatAngle]^2 * atomDict[atom]
         end
-        f0Dict[scatAngle] = f0
+        f0SqrdDict[scatAngle] = f0
     end
-    return f0Dict
+    return f0SqrdDict
 end
 
 ################################################################################
@@ -57,6 +57,15 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int64},Reflection}, im
                     diffractionImage.observationList[hkl] = refObservation
                     foundCentroidImage = true
                     break
+                elseif numPartials == 1
+                    if imageNum != 1 && imageNum != length(imageArray)
+                        diffractionImage.observationList[hkl] = refObservation
+                        foundCentroidImage = true
+                        @printf("*************************WARNING**************************\n")
+                        @printf("Observation %d of Reflection [%d,%d,%d] has been allocated to image %d which is not the correct image.\n",obsNum, hkl[1], hkl[2], hkl[3],imageNum)
+                        @printf("Jonny you need to properly sort this out!!!\n")
+                        @printf("The reflection centroid isn't actually on the image. This is just your crappy work around to continue work.\nSORT IT!!!\n\n")
+                    end
                 end
             end
             #End Section: Add observations to images - Fully observed reflections
