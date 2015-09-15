@@ -20,6 +20,7 @@
 
 -	Sort out expected intensities when sequence files aren't given.
 -	Sort out the atomic composition when NCS is present.  
+-	Outlier rejection
 
 ### Things that could be done at some point
 
