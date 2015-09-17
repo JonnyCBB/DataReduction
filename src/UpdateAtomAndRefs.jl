@@ -131,28 +131,6 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int64},Reflection}, im
             end
             #End Section: Add observations to images - Partially observed reflections
             ########################################################################
-
-
-            ########################################################################
-            #Section: Inflate observation errors
-            #-----------------------------------------------------------------------
-            #In this section we inflate the sigma values of the observed intensities
-            #according to their total calculated fraction values.
-            #Basically if the calculated intensity fraction is not close enough to 1
-            #then this means that the true observed intensity measurement has not
-            #been fully measured. Rather than estimating this true observed
-            #intensity we instead inflate the sigma value for the reflection. This
-            #basically means that we're increasing our uncertainty about the
-            #intensity measurement rather than trying to deterministically give an
-            #estimate of the true intensity.
-
-            #=
-            I need to come back to this once the sequence information has been
-            determined.
-            =#
-
-            #End Section: Inflate observation errors
-            ########################################################################
         end
         hklList[hkl] = reflection # update the reflection in the reflection list
     end
