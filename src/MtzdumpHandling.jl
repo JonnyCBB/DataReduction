@@ -49,6 +49,13 @@ function runMtzdump(mtzFile::ASCIIString, numRef::Int64=20)
     write(mtzdumpInputFile, "end \r\n") # write "end" line
     close(mtzdumpInputFile) # close file
 
+    #@pyimport doesn't automatically look for python modules in the current
+    #directory so this statement checks to see if the current working directory
+    #is one of the paths that will be searched. If it isn't then it adds the
+    #current directory to the vector of directories that @pyimport searches.
+    if !in(pwd(), PyVector(pyimport("sys")["path"]))
+        unshift!(PyVector(pyimport("sys")["path"]), pwd())
+    end
     #import python function to run MTZ dump. (This is horrible hack because I couldn't work out how to do it in Julia)
     @pyimport getMtzdumpOutput as getmtz
 
