@@ -233,6 +233,16 @@ function sortHKLIntoResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vect
     end
 end
 
+function calcResbinMeanIntensity!(resbins::Vector{ResBin}, f0SqrdDict::Dict{Float64, Float64}, hklList::Dict{Vector{Int64}, Reflection})
+    for resbin in resbins
+        summedIntensity = 0.0
+        for hkl in resbin.hkls
+            summedIntensity += f0SqrdDict[hklList[hkl].scatteringAngle]
+        end
+        resbin.meanIntensity = summedIntensity/resbin.numOfRef
+    end
+end
+
 ################################################################################
 #NEED TO COME BACK TO THIS LATER
 ################################################################################
