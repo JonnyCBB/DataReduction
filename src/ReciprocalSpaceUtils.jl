@@ -380,3 +380,14 @@ function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector
     end
     return changeInBfac, midBfac
 end
+
+function calcTempFactorDict(scatteringAngles::Vector{Float64}, bFactor::Float64, wavelength::Float64)
+    tempFacDict = Dict{Float64, Float64}()
+    for scatAngle in scatteringAngles
+        B = bFactor
+        theta = deg2rad(scatAngle)
+        lambda = wavelength
+        tempFacDict[scatAngle] = exp(-2 * B * (sin(theta)^2) / lambda^2)
+    end
+    return tempFacDict
+end
