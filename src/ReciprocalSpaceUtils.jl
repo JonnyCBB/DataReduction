@@ -1,3 +1,4 @@
+
 immutable Unitcell{T<:Float64}
     a::T
     b::T
@@ -303,7 +304,7 @@ function assignMeanIntensityToResBins!(resbins::Array{ResBin,1}, reflectionList:
     end
 end
 
-function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector{DiffractionImage}, resbins::Vector{ResBin}, displayBfacPlot::Bool=false)
+function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector{DiffractionImage}, resbins::Vector{ResBin}, outputImageDir::ASCIIString="", displayBfacPlot::Bool=false)
     bfactors = Vector{Float64}()
     imageNumArray = Vector{Int64}()
     imageNum = 0
@@ -367,7 +368,13 @@ function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector
     Guide.manual_color_key("Colour Key",["Line of best fit", "Data"],[getColors[1],getColors[2]]),
     Guide.title(plotTitle)
     )
-    draw(PDF("bfacPlot.pdf", 12cm, 9cm), bfactPlt)
+    if isempty(outputImageDir)
+        outputPlotLocation = @sprintf("bfacPlot.pdf")
+    else
+        outputPlotLocation = @sprintf("%s/bfacPlot.pdf",outputImageDir)
+    end
+    draw(PDF(outputPlotLocation, 12cm, 9cm), bfactPlt)
+
     if displayBfacPlot
         display(bfactPlt)
     end

@@ -1,12 +1,16 @@
-# include("ReciprocalSpaceUtils.jl")
-# include("ElementDatabase.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
-# using Gadfly
-# using LsqFit
-# using Colors
-# using Compose
+#########################################################################
+####################### using/import statements #########################
+using PyCall
+using Gadfly
+using LsqFit
+using Colors
+using Compose
+
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
 
 ######### Inputs ##########
 const xrayEnergy = 12.7 #Set X-ray Energy
@@ -29,6 +33,19 @@ const additionalElements = ""
 const minRefInResBin = 50 #choose minimum number of reflections in resolution bin.
 const minRefPerImage = 3
 const displayBfacPlot = false
+
+const outputImageDir = ""
+################################################################################
+#Section: Create plot directory
+#-------------------------------------------------------------------------------
+if !isempty(outputImageDir)
+    if !isdir(outputImageDir)
+        mkdir(outputImageDir)
+    end
+end
+#End Section: Create plot directory
+################################################################################
+
 ################################################################################
 #Section: Inputs - Extract sequence information
 #-------------------------------------------------------------------------------
@@ -77,6 +94,6 @@ updateAtomDict!(atomDict, spacegroup)
 f0SqrdDict = calcTotalf0Sqrd(atomDict, scatteringAngles, elementDict)
 updateRefListAndImageArray!(hklList, imageArray, estimateTotalIntensityFromPartialRef)
 calcResbinMeanIntensity!(resbins, f0SqrdDict, hklList)
-changeInBfac, midBfac = calcBfactor(hklList, imageArray, resbins, displayBfacPlot)
+changeInBfac, midBfac = calcBfactor(hklList, imageArray, resbins, outputImageDir, displayBfacPlot)
 #End Section: Update atom and reflection information
 ################################################################################
