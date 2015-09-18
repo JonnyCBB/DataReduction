@@ -348,9 +348,9 @@ function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector
     end
     model(x,p) = p[1] + p[2]*x
     fit = curve_fit(model, imageNumArray, bfactors,[0.0,0.0])
-    changeInBfac = fit.param[2]
+    ΔB = fit.param[2]
     startAndEndBfac = model([imageNumArray[1], imageNumArray[end]], fit.param)
-    midBfac = (startAndEndBfac[1] + startAndEndBfac[end])/2
+    B = (startAndEndBfac[1] + startAndEndBfac[end])/2
 
     n = 2
     getColors = distinguishable_colors(n, Color[LCHab(70, 60, 240)],
@@ -378,16 +378,19 @@ function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector
     if displayBfacPlot
         display(bfactPlt)
     end
-    return changeInBfac, midBfac
+    return ΔB, B
 end
 
-function calcTempFactorDict(scatteringAngles::Vector{Float64}, bFactor::Float64, wavelength::Float64)
+function calcTempAndSFMultFactorDict(scatteringAngles::Vector{Float64}, bFactor::Float64, bFacChange::Float64, wavelength::Float64)
     tempFacDict = Dict{Float64, Float64}()
+    SFMultiplierDict = Dict{Float64, Float64}()
     for scatAngle in scatteringAngles
         B = bFactor
-        theta = deg2rad(scatAngle)
-        lambda = wavelength
-        tempFacDict[scatAngle] = exp(-2 * B * (sin(theta)^2) / lambda^2)
+        θ = deg2rad(scatAngle)
+        λ = wavelength
+        ΔB = bFacChange
+        tempFacDict[scatAngle] = exp(-2 * B * (sin(θ)^2) / λ^2)
+        SFMultiplierDict[scatAngle] = exp(-2 * ΔB * (sin(θ)^2) / λ^2)
     end
-    return tempFacDict
+    return tempFacDict, SFMultiplierDict
 end
