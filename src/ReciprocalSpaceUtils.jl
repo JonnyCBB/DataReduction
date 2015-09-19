@@ -14,7 +14,7 @@ type ReflectionObservation
     misym::Int64
     intensity::Float64
     sigI::Float64
-    imageNums::Vector{Uint16}
+    imageNums::Vector{UInt16}
     imageIntensities::Vector{Float64}
 end
 
