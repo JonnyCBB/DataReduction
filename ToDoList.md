@@ -1,8 +1,5 @@
 ### Next steps:
-
--	Read sequence file information.
--	Update sigma for observations whose calculated fractions are not (close to) 1
--	This can only be done once sequence information has been read
+-	Inflate sigma values for partial reflections
 -	write tests for input parser/Create structure for Reflection/SpaceGroup/Resbin types.
 
 ### Inputs still to add:
