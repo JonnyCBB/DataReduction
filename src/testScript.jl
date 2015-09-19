@@ -1,16 +1,16 @@
 #########################################################################
 ####################### using/import statements #########################
-# using PyCall
-# using Gadfly
-# using LsqFit
-# using Colors
-# using Compose
+using PyCall
+using Gadfly
+using LsqFit
+using Colors
+using Compose
 
-# include("ReciprocalSpaceUtils.jl")
-# include("ElementDatabase.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
 
 ######### Inputs ##########
 const xrayEnergy = 12.7 #Set X-ray Energy
@@ -115,106 +115,6 @@ changeInBfac, midBfac = calcBfactor(hklList, imageArray, resbins, outputImageDir
 #intensity measurement rather than trying to deterministically give an
 #estimate of the true intensity.
 tempFacDict, SFMultiplierDict = calcTempAndSFMultFactorDict(scatteringAngles, midBfac, changeInBfac, xrayWavelength)
-
-calcD(ΔB::Float64, θ::Float64, λ::Float64) = exp(-2 * ΔB * (sin(deg2rad(θ))^2) / λ^2)
-
-ΔB = changeInBfac
-rotStart = imageArray[1].rotAngleStart
-rotEnd = imageArray[end].rotAngleStop
-ϕ = imageArray[1].rotAngleStop - rotStart
-for diffractionImage in imageArray
-    #Loop through each observation
-    for hkl in keys(diffractionImage.observationList)
-        centroidImageDiffErrFactor = 0.0
-        reflection = hklList[hkl]
-        refObservation = diffractionImage.observationList[hkl] # get the observation object
-        imageNumAndInts = hcat(refObservation.imageNums, refObservation.imageIntensities)
-        imageNumAndInts = sortrows(imageNumAndInts)
-        imageNums = sort(refObservation.imageNums)
-        numPartials = length(imageNums)
-        firstImage = imageArray[imageNums[1]]
-        lastImage = imageArray[imageNums[end]]
-
-        ########################################################################
-        #Mini Section: Calculate error factor - Partials observed on different images
-        #-----------------------------------------------------------------------
-        #In this section we have to take into account our uncertainty due to the
-        #fact that partial observations of reflections are observed on different
-        #images. The variances that we want to add are '(1 - Dⱼ^2) * Ip' Where Dⱼ
-        #is the structure factor multiplier, j represents the number of images
-        #away from the image on which the centroid of the reflection was found,
-        #Ip represents the (partial) intensity of the reflection that was observed
-        #on that image.
-        #The definition of j may be confusing so here's an example: lets say we
-        #observe a reflection on images 5, 6, 7, 8, 9, 10. Suppose the centroid
-        #of the reflection was observed on image 8. Then when we're considering
-        #the value Dⱼ for image 10 we get that j = 10 - 8 = 2.
-
-        #We also have to consider the cases when the centroids are not observed
-        #on any of the given images (i.e. for reflections that are only partly
-        #observed). That's what the if statment is about below.
-        if refObservation.rotCentroid < firstImage.rotAngleStart
-            if imageNums[end] > 1
-                numImagesAboveCentroid = Int(floor(abs(firstImage.rotAngleStop - imageArray[imageNums[end]].rotAngleStop)/ϕ))
-                for i in 1:numImagesAboveCentroid
-                    partialIntensity = imageNumAndInts[numPartials - numImagesAboveCentroid + i, 2]
-                    centroidImageDiffErrFactor += abs(1 - calcD(i * ΔB, reflection.resolution, xrayWavelength)^2) * partialIntensity
-                end
-            end
-        elseif refObservation.rotCentroid > lastImage.rotAngleStop
-            if imageNums[1] < length(imageArray)
-                numImagesBelowCentroid = Int(floor(abs(lastImage.rotAngleStart - imageArray[imageNums[1]].rotAngleStart)/ϕ))
-                for i in 1:numImagesBelowCentroid
-                    partialIntensity = imageNumAndInts[numImagesBelowCentroid + 1 - i]
-                    centroidImageDiffErrFactor += abs(1 - calcD(i * ΔB, reflection.resolution, xrayWavelength)^2) * partialIntensity
-                end
-            end
-        else
-            if length(imageNums) > 1
-                numImagesAboveCentroid = Int(floor(abs(refObservation.rotCentroid - imageArray[imageNums[end]].rotAngleStop)/ϕ))
-                numImagesBelowCentroid = Int(floor(abs(refObservation.rotCentroid - imageArray[imageNums[1]].rotAngleStart)/ϕ))
-                for i in 1:numImagesAboveCentroid
-                    partialIntensity = imageNumAndInts[numPartials - numImagesAboveCentroid + i, 2]
-                    centroidImageDiffErrFactor += abs(1 - calcD(i * ΔB, reflection.resolution, xrayWavelength)^2) * partialIntensity
-                end
-                for i in 1:numImagesBelowCentroid
-                    partialIntensity = imageNumAndInts[numImagesBelowCentroid + 1 - i]
-                    centroidImageDiffErrFactor += abs(1 - calcD(i * ΔB, reflection.resolution, xrayWavelength)^2) * partialIntensity
-                end
-            end
-        end
-        refObservation.imageIntensities = Array(Float64,0) #Clear the memory since we don't need this variable anymore
-        #End Mini Section: Calculate error factor - Partials observed on different images
-        ########################################################################
-
-        ########################################################################
-        #Mini Section: Calculate error factor - Incomplete fraction calculated.
-        #-----------------------------------------------------------------------
-        #In this section we consider our uncertainty of the intensity due to the
-        #fact that the integration program tells us that the fraction of the
-        #reflection calculated is less than 1.
-        fracCalcErrFactor = 0.0
-        if refObservation.fractionCalc < minFracCalc
-            fracCalcErrFactor = 1.0 - refObservation.fractionCalc
-        end
-        #End Mini Section: Calculate error factor - Incomplete fraction calculated.
-        ########################################################################
-
-        ########################################################################
-        #Mini Section: Inflate the uncertainty.
-        #-----------------------------------------------------------------------
-        #In this section we recalculate our uncertainties i.e. the measured sigmas.
-        #Since it's the variances that add (not the sigmas), we need to square the
-        #current sigma value before adding it. We can simply add the other factors.
-        if applyBFacTof0
-            refObservation.sigI = sqrt(refObservation.sigI^2 + centroidImageDiffErrFactor + fracCalcErrFactor * reflection.epsilon * f0SqrdDict[reflection.scatteringAngle] * tempFacDict[reflection.scatteringAngle])
-        else
-            refObservation.sigI = sqrt(refObservation.sigI^2 + centroidImageDiffErrFactor + fracCalcErrFactor * reflection.epsilon * f0SqrdDict[reflection.scatteringAngle])
-        end
-        diffractionImage.observationList[hkl] = refObservation # Update the reflection observation
-        #End Mini Section: Inflate the uncertainty.
-        ########################################################################
-    end
-end
+inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFacTof0)
 #End Section: Inflate observation errors
 ########################################################################
