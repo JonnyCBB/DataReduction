@@ -382,6 +382,9 @@ function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector
     return ΔB, B
 end
 
+################################################################################
+#Add method information
+################################################################################
 function calcTempAndSFMultFactorDict(scatteringAngles::Vector{Float64}, bFactor::Float64, bFacChange::Float64, wavelength::Float64)
     tempFacDict = Dict{Float64, Float64}()
     SFMultiplierDict = Dict{Float64, Float64}()
@@ -395,3 +398,8 @@ function calcTempAndSFMultFactorDict(scatteringAngles::Vector{Float64}, bFactor:
     end
     return tempFacDict, SFMultiplierDict
 end
+
+################################################################################
+#Add method information
+################################################################################
+calcD(ΔB::Float64, θ::Float64, λ::Float64) = exp(-2 * ΔB * (sin(deg2rad(θ))^2) / λ^2)
