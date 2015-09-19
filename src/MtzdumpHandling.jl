@@ -411,9 +411,9 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
 
                         #Here we decide whether to use the summed, profile fiited or
                         #combined intensity.
-                        if intensityType == "Summed"
+                        if uppercase(intensityType) == "SUMMED"
                             intensity = Isum
-                        elseif intensityType == "Profile"
+                        elseif uppercase(intensityType) == "PROFILE"
                             intensity = Ipr
                         else
                             intensity = combineObsIntensity(Ipr, Isum, LP)
