@@ -1,12 +1,11 @@
 ### Next steps:
+
 -	Inflate sigma values for partial reflections
 -	write tests for input parser/Create structure for Reflection/SpaceGroup/Resbin types.
 
 ### Inputs still to add:
 
-1) Scale factor from Aimless  
-2) Sequence file  
-3) Initial structure factor amplitudes from CTruncate
+1) Scale factor from Aimless 2) Sequence file 3) Initial structure factor amplitudes from CTruncate
 
 ### Known Bugs
 
@@ -15,12 +14,14 @@
 
 ### Things that have to be done at some point.
 
+-	Check to make sure the reflection multiplicity (epsilon factor) is correct
 -	Sort out expected intensities when sequence files aren't given.
--	Sort out the atomic composition when NCS is present.  
+-	Sort out the atomic composition when NCS is present.
 -	Outlier rejection
 
 ### Things that could be done at some point
 
+-	My object structure isn't great. Both Reflection and Diffraction image types contain reflection Observations. This is a waste of memory. I may have to restructure this so that only Diffraction Images contain observations of reflections because that's where it seems sensible.
 -	Improve partiality fraction estimation when dealing with partially observed reflections.
 -	Could try to come up with a clever way to scale up partially observed intensities that have negatively observed values.
 -	Sort out how reflection columns are read from MTZ Dump.
