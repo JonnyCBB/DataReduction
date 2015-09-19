@@ -14,7 +14,8 @@ type ReflectionObservation
     misym::Int64
     intensity::Float64
     sigI::Float64
-    imageNums::Array{Uint16}
+    imageNums::Vector{Uint16}
+    imageIntensities::Vector{Float64}
 end
 
 type DiffractionImage

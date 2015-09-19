@@ -431,7 +431,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
                         #observation and so we create a new observation object and
                         #add it to the array.
                         if isempty(hklList[origHKL].observations)
-                            push!(hklList[origHKL].observations, ReflectionObservation(rot, fractionCalc, misymNum, intensity, sigIsum^2, [imageNumber]))
+                            push!(hklList[origHKL].observations, ReflectionObservation(rot, fractionCalc, misymNum, intensity, sigIsum^2, [imageNumber], [intensity]))
                         else
                             #If there are existing observation objects for the
                             #reflection then we need to loop through all
@@ -461,6 +461,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
                                                 refObservation.intensity += intensity
                                                 refObservation.sigI += sigIsum^2
                                                 push!(refObservation.imageNums, imageNumber)
+                                                push!(refObservation.imageIntensities, intensity)
                                                 hklList[origHKL].observations[obsNum] = refObservation
                                             end
                                             break
@@ -474,7 +475,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
                                 if sameObservation
                                     break
                                 elseif obsNum == numOfExistingObs && !sameObservation
-                                    push!(hklList[origHKL].observations, ReflectionObservation(rot, fractionCalc, misymNum, intensity, sigIsum^2, [imageNumber]))
+                                    push!(hklList[origHKL].observations, ReflectionObservation(rot, fractionCalc, misymNum, intensity, sigIsum^2, [imageNumber], [intensity]))
                                 end
                             end
                         end
