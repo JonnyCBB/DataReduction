@@ -250,3 +250,30 @@ function inflateObservedSigmas!(imageArray::Vector{DiffractionImage}, hklList::D
 end
 #End Section: Inflate observation errors
 ########################################################################
+
+
+########################################################################
+#Section: Get initial amplitudes
+#-----------------------------------------------------------------------
+function getInitialAmplitudes!(hklList::Dict{Vector{Int64}, Reflection}, refAmpDict::Dict{Vector{Int64}, Float64}, scaleFac::Float64)
+    for hkl in keys(hklList)
+        maxIntensity = -1000
+        reflection = hklList[hkl]
+        if haskey(refAmpDict, reflection.symEquivHKL)
+            reflection.amplitude = refAmpDict[reflection.symEquivHKL] / scaleFac
+        else
+            for observation in reflection.observations
+                if observation.intensity > maxIntensity
+                    maxIntensity = observation.intensity
+                end
+            end
+            if maxIntensity > 0
+                reflection.amplitude = sqrt(maxIntensity)
+            else
+                reflection.amplitude = 0.0
+            end
+        end
+    end
+end
+#End Section: Get initial amplitudes
+########################################################################

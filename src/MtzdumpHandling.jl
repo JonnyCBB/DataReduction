@@ -101,7 +101,7 @@ volumeRatio(penetrationFraction::Float64) = volumeRatio(penetrationFraction, 1.0
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
+function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
     ################################################################################
     #Parameter types can be annotated if necessary to save memory if that
     #becomes an issue.
@@ -133,6 +133,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
     colNumRot = 0
     colNumLP = 0
     refLine = 0
+    hkl = [0, 0, 0]
     origHKL = [0, 0, 0]
     imageNumber = 0
     misymNum = 0
@@ -363,7 +364,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
                     #If the HKL indices haven't been added to the reflection
                     #dictionary then we have to add this reflection to it.
                     if !haskey(hklList, origHKL)
-                        hklList[origHKL] = Reflection(origHKL, spacegroup, unitcell, xrayWavelength)
+                        hklList[origHKL] = Reflection(origHKL, hkl, spacegroup, unitcell, xrayWavelength)
                     end
                     #Extract some important reflection information.
                     imageNumber = parse(Int, nonEmptyLine[colNumBatch])
@@ -387,7 +388,7 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
                 end
             elseif contains(nonEmptyLine[1], ".")
                 #Check that the number of columns for the reflection information is correct.
-                if length(nonEmptyLine) <= numMtzColsFor2ndand3rdRefLines
+                if length(nonEmptyLine) ≤ numMtzColsFor2ndand3rdRefLines
                     #Because information about a single reflection is stored on
                     #multiple lines in the MTZ Dump output we need to keep track of
                     #of the line number so we have to increment it.
@@ -494,4 +495,56 @@ function parseMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
     end
 
     return spacegroup, unitcell, hklList, imageArray
+end
+
+################################################################################
+#NEED TO ADD METHOD INFORMATION
+################################################################################
+function parseCTruncateMTZDumpOutput(mtzDumpOutput::ASCIIString)
+    #Split the MTZ Dump output log by the newline character
+    mtzdumpOutputLines = split(mtzDumpOutput, "\n")
+
+    searchReflections = false
+    firstRef = true
+    hkl = [0,0,0]
+    refLine = 0
+    refAmpDict = Dict{Vector{Int64},Float64}()
+    scaleFac = 0.0
+    scaledAmplitude = 0.0
+    for line in mtzdumpOutputLines
+        if contains(line, "LIST OF REFLECTIONS")
+            searchReflections = true
+        end
+
+        if searchReflections == true && !isempty(strip(line))
+            nonEmptyLine = split(line) #split the line by whitespace
+            if isnumber(nonEmptyLine[1]) # Check the first non-whitespace string can be parsed as numeric (this only works for integers)
+                if length(nonEmptyLine) == numMtzColsFor1stRefLine #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
+                    hkl = [parse(Int,nonEmptyLine[1]), parse(Int,nonEmptyLine[2]), parse(Int,nonEmptyLine[3])]
+                    scaledAmplitude = parse(Float64,nonEmptyLine[4])
+                    refAmpDict[hkl] = scaledAmplitude
+                else
+                    #If the number of columns is not the same as the expected ones then this throws an error because the parser will fail in that case.
+                    errMsg = @sprintf("The MTZ Dump output doesn't have %d columns for the reflection line.\nThis means the reflections in the file will not be parsed properly\nContact elspeth.garman@bioch.ox.ac.uk to sort out the MTZ Dump parser for your case.\n\n", numMtzColsFor1stRefLine)
+                    error(errMsg)
+                end
+            elseif contains(nonEmptyLine[1], ".") || contains(nonEmptyLine[1], "?")
+                if firstRef
+                    if length(nonEmptyLine) == numMtzColsIntLineCTruncate #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
+                        refLine += 1
+                        intensity = parse(Float64, nonEmptyLine[4])
+                        scaleFac = scaledAmplitude / sqrt(intensity)
+                        firstRef = false
+                    else
+                        @printf("hkl: [%d, %d, %d]\n", hkl[1], hkl[2], hkl[3])
+                        print(line)
+                        #If the number of columns is not the same as the expected ones then this throws an error because the parser will fail in that case.
+                        errMsg = @sprintf("The MTZ Dump output doesn't have %d columns for the reflection line.\nThis means the reflections in the file will not be parsed properly\nContact elspeth.garman@bioch.ox.ac.uk to sort out the MTZ Dump parser for your case.\n\n", numMtzColsIntLineCTruncate)
+                        error(errMsg)
+                    end
+                end
+            end
+        end
+    end
+    return refAmpDict, scaleFac
 end

@@ -36,6 +36,7 @@ end
 
 type Reflection
     hkl::Vector{Int64}
+    symEquivHKL::Vector{Int64}
     resolution::Float64
     scatteringAngle::Float64
     epsilon::Uint8
@@ -44,10 +45,11 @@ type Reflection
     amplitude::Float64
     observations::Vector{ReflectionObservation}
 
-    function Reflection(hkl::Vector{Int64}, spacegroup::SpaceGroup,
-        unitcell::Unitcell, xrayWavelength::Float64)
+    function Reflection(hkl::Vector{Int64}, symEquivHKL::Vector{Int64},
+                        spacegroup::SpaceGroup, unitcell::Unitcell, xrayWavelength::Float64)
         reflection = new()
         reflection.hkl = hkl
+        reflection.symEquivHKL = symEquivHKL
         recipspaceunitcell = convertDirectToReciprocal(unitcell)
         reflection.resolution = calcResolution(recipspaceunitcell,hkl)
         reflection.scatteringAngle = calcScatteringAngle(reflection.resolution,

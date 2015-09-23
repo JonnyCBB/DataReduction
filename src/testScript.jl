@@ -19,6 +19,7 @@ const integrationFileLocation = "integration_scaling_files\\pointless.mtz"
 # const integrationFileLocation = "integration_scaling_files\\test450images.mtz"
 const sequenceFileLocation = "SequenceFiles\\2BN3fasta.txt"
 # const sequenceFileLocation = "SequenceFiles\\4X4Vfasta.txt"
+const sfFileLocation = "integration_scaling_files\\test450images_scaled1.mtz"
 const useSeqFile = true #Choose whether to use a sequence file to get variance and B-factor estimates
 const separateSymEquivs = false #Merge symmetry equivalents or keep them separate.
 const sigIDiffTol = 0.1 #Tolerance level for difference between sigIpr and sigIsum
@@ -27,6 +28,7 @@ const numOfRefs = 20000 #Number of reflections to be used in data reduction anal
 const intensityType = "Combined" #How to deal with Ipr and Isum
 const numMtzColsFor1stRefLine = 9 #Number of columns in 1st MTZ Dump line for reflection information
 const numMtzColsFor2ndand3rdRefLines = 4 #Number of columns in 2nd/3rd MTZ Dump line for reflection information
+const numMtzColsIntLineCTruncate = 6
 const estimateTotalIntensityFromPartialRef = true #Estimate the total intensity from partial information.
 const additionalElements = ""
 
@@ -63,7 +65,7 @@ additionalElements!(atomDict, additionalElements)
 #This section implements the methods to extract the integrated intensity
 #information using MTZ Dump.
 mtzdumpOutput = runMtzdump(integrationFileLocation, numOfRefs)
-spacegroup, unitcell, hklList, imageArray = parseMTZDumpOutput(mtzdumpOutput)
+spacegroup, unitcell, hklList, imageArray = parseMosflmMTZDumpOutput(mtzdumpOutput)
 #End Section: Inputs - Extract reflection information
 ################################################################################
 
@@ -117,4 +119,24 @@ changeInBfac, midBfac = calcBfactor(hklList, imageArray, resbins, outputImageDir
 tempFacDict, SFMultiplierDict = calcTempAndSFMultFactorDict(scatteringAngles, midBfac, changeInBfac, xrayWavelength)
 inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFacTof0)
 #End Section: Inflate observation errors
+########################################################################
+
+########################################################################
+#Section: Extract initial guess structure factor amplitudes
+#-----------------------------------------------------------------------
+mtzDumpOutput = runMtzdump(sfFileLocation, 1200)
+refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
+getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
+#End Section: Extract initial guess structure factor amplitudes
+########################################################################
+
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+
+
 ########################################################################
