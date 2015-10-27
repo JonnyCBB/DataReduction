@@ -29,8 +29,8 @@ stopAng, Dict{Vector{Int64}, ReflectionObservation}(), 0.0)
 
 immutable SpaceGroup
     symbol::ASCIIString
-    number::Uint8
-    numSymOps::Uint8
+    number::UInt8
+    numSymOps::UInt8
     symOps::Vector{Matrix{Float64}}
 end
 
@@ -39,7 +39,7 @@ type Reflection
     symEquivHKL::Vector{Int64}
     resolution::Float64
     scatteringAngle::Float64
-    epsilon::Uint8
+    epsilon::UInt8
     isCentric::Bool
     isSysAbs::Bool
     amplitude::Float64
@@ -309,37 +309,50 @@ end
 
 function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector{DiffractionImage}, resbins::Vector{ResBin}, outputImageDir::ASCIIString="", displayBfacPlot::Bool=false)
     bfactors = Vector{Float64}()
+    bfactorSigmas = Vector{Float64}()
+    scaleFactors = Vector{Float64}()
+    scaleFactorSigmas = Vector{Float64}()
     imageNumArray = Vector{Int64}()
     imageNum = 0
+    #loop through image array
     for img in imageArray
-        imageNum += 1
-        intensityDict = Dict{Float64,Float64}()
+        imageNum += 1 # increment image number
+        intensityDict = Dict{Float64,Float64}() #create intensity dict Dict{resolution, intensity/epsilon}
+        #loop through all observations on the image
         for hkl in keys(img.observationList)
-            reflection = hklList[hkl]
+            reflection = hklList[hkl] # get reflection
+            #extract epsilon corrected intensity
             intensityDict[reflection.resolution] = img.observationList[hkl].intensity/reflection.epsilon
         end
         logIntensityRatio = Vector{Float64}()
         hSqrd = Vector{Float64}()
+        #now loop through each resolution bin
         for resbin in resbins
             summedIntensity = 0.0
             numRefs = 0
+            #loop through all resolutions in the list of observations
             for resolution in keys(intensityDict)
                 if resbin.minRes > resolution >= resbin.maxRes
                     numRefs += 1
-                    summedIntensity += intensityDict[resolution]
+                    summedIntensity += intensityDict[resolution] # sum the intensities
                 end
             end
-            meanIntensity = summedIntensity/numRefs
+            meanIntensity = summedIntensity/numRefs # calculate mean intensity for the resolution bin
             if !isnan(meanIntensity) && meanIntensity > 0.0
                 push!(logIntensityRatio, log(meanIntensity/resbin.meanIntensity))
                 midres = (resbin.maxRes + resbin.minRes)/2
                 push!(hSqrd, 1/midres^2)
             end
         end
+        #Check that there were enough data points for the image
         if length(logIntensityRatio) >= minRefPerImage
-            model(x, p) = p[1] + p[2] * x
-            fit = curve_fit(model, hSqrd, logIntensityRatio, [0.0, 0.0])
+            model(x, p) = p[1] + p[2] * x #create linear function model
+            fit = curve_fit(model, hSqrd, logIntensityRatio, [0.0, 0.0]) #fit straight line to the data
+            paramSigmas = sqrt(diag(estimate_covar(fit))) # return the sigma values for the fitted values
             push!(bfactors, -2*fit.param[2])
+            push!(bfactorSigmas, 2*paramSigmas[2])
+            push!(scaleFactorSigmas, abs(exp(paramSigmas[1])))
+            push!(scaleFactors, exp(fit.param[1]))
             push!(imageNumArray, imageNum)
         end
         # xvals = linspace(0, maximum(hSqrd), 100)
