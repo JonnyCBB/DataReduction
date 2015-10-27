@@ -21,6 +21,7 @@
 -	Outlier rejection
 -	Sort out how the initial amplitudes are guessed if no CTruncate file is given
 -	Sort out error messages so they use '@sprintf' macros. At the moment they wont give the correct strings in general
+-   Sort out image rejection
 
 ### Things that could be done at some point
 
@@ -29,3 +30,4 @@
 -	Could try to come up with a clever way to scale up partially observed intensities that have negatively observed values.
 -	Sort out how reflection columns are read from MTZ Dump.
 -	Be explicit with reading in the column information from the MTZ Dump output from the CTruncate file. At the moment I've just looked at the column numbers and inserted the numbers straight from the output file. This may not be consistent if other input files are read.
+-   Perform a weighted average when calculating the mean intensity of resolution bins from the images.
