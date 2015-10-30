@@ -4,7 +4,6 @@ using PyCall
 using Gadfly
 using LsqFit
 using Colors
-using Compose #Check that I actually need this
 using Distributions
 using KernelDensity
 import Gadfly.ElementOrFunction
