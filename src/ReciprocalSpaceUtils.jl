@@ -307,7 +307,7 @@ function assignMeanIntensityToResBins!(resbins::Array{ResBin,1}, reflectionList:
     end
 end
 
-function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector{DiffractionImage}, resbins::Vector{ResBin}, outputImageDir::ASCIIString="", displayBfacPlot::Bool=false)
+function calcBandScaleParams(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector{DiffractionImage}, resbins::Vector{ResBin}, outputImageDir::ASCIIString="", displayPlots::Bool=false)
     bfactors = Vector{Float64}()
     bfactorSigmas = Vector{Float64}()
     scaleFactors = Vector{Float64}()
@@ -362,39 +362,191 @@ function calcBfactor(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector
         # layer(x=xvals, y=yvals, Geom.line)
         # )
     end
-    model(x,p) = p[1] + p[2]*x
-    fit = curve_fit(model, imageNumArray, bfactors,[0.0,0.0])
-    ΔB = fit.param[2]
-    startAndEndBfac = model([imageNumArray[1], imageNumArray[end]], fit.param)
-    B = (startAndEndBfac[1] + startAndEndBfac[end])/2
+    #######################################################################################
+    #######################################################################################
+    #NEED TO SORT THIS OUTLIER IMPLEMENTATION
+    #It works for the current dataset but I'm not yet sure how general this is. I would
+    #really like to do some non-parametric regression but my brief play with it wasn't as
+    #successful as I would've liked.
 
-    n = 2
+    ##### Remove troublesome data #####
+    #For b factors we assume they come from a normal distribution. so we can calculate the
+    #z-scores. We'll remove the ones that are more than 2 (i.e. more than 2 standard
+    #deviations from the mean. This corresponds to keeping data that are 95% likely to be
+    #observed if we repeatedly performed the experiment - the frequentist view).
+    zScoresB = (bfactors - mean(bfactors))./std(bfactors)
+
+    #For the scale factors We'll use a different method. We'll use a (made up) kernel density
+    #method. Basically we fit a kernel density to the data and then decide that we'll only
+    #keep a certain percentage of the data. By default this is set to 90% but the user can
+    #decide this.
+    kdeScaleFacsFull = kde(scaleFactors, 0:kdeStep:maximum(scaleFactors))
+    cumProbScaleFull = cumsum(kdeScaleFacsFull.density)/sum(kdeScaleFacsFull.density)
+    outlierThresholdValue = kdeScaleFacsFull.x[findfirst(cumProbScaleFull .> keepPercentageScaleData, true)]
+
+    #Find indices where outliars appear in both the bfactor and scale factor arrays
+    indicesOfOutliers = Vector{Int64}()
+    for i in 1:length(bfactors)
+        if abs(zScoresB[i]) > 2 || scaleFactors[i] > outlierThresholdValue
+            push!(indicesOfOutliers, i)
+        end
+    end
+
+    ### Plot distributions before the removal of outliers so we can see the full
+    #distributions.
+    n = 3 # We need three colours for the different elements of all of the plots in total
+    #Now we generate the distiguishable colours.
     getColors = distinguishable_colors(n, Color[LCHab(70, 60, 240)],
                    transform=c -> deuteranopic(c, 0.5),
                    lchoices=Float64[65, 70, 75, 80],
                    cchoices=Float64[0, 50, 60, 70],
                    hchoices=linspace(0, 330, 24))
+
+    #Plot the B factor distribtion
+    plotTitleB = @sprintf("B-factor distribution before outlier removal")
+    bfactPltBefore = plot(
+    layer(x=imageNumArray, y=bfactors, Geom.point, Theme(default_color=getColors[2])),
+    Guide.xlabel("Image Number"), Guide.ylabel("B-factor"),
+    Guide.manual_color_key("Colour Key",["Data"],[getColors[2]]),
+    Guide.title(plotTitleB)
+    )
+
+    #Plot the scale factor distribution
+    plotTitleScale = @sprintf("Scale factor distribution before outlier removal")
+    scalefactPltBefore = plot(
+    layer(x=imageNumArray, y=scaleFactors, Geom.point, Theme(default_color=getColors[2], highlight_width=0px)),
+    Guide.xlabel("Image Number"), Guide.ylabel("Scale factor"),
+    Guide.manual_color_key("Colour Key",["Data"],[getColors[2]]),
+    Guide.title(plotTitleScale),
+    )
+
+    if isempty(outputImageDir)
+        outputBPltBeforeLocation = @sprintf("BFac_Plot_Before_outlier_removal.pdf")
+        outputScalePltBeforeLocation = @sprintf("ScaleFac_Plot_Before_outlier_removal.pdf")
+    else
+        outputBPltBeforeLocation = @sprintf("%s/BFac_Plot_Before_outlier_removal.pdf", outputImageDir)
+        outputScalePltBeforeLocation = @sprintf("%s/ScaleFac_Plot_Before_outlier_removal.pdf", outputImageDir)
+    end
+    draw(PDF(outputBPltBeforeLocation, 16cm, 9cm), bfactPltBefore)
+    draw(PDF(outputScalePltBeforeLocation, 16cm, 9cm), scalefactPltBefore)
+    if displayPlots
+        display(bfactPltBefore)
+        display(scalefactPltBefore)
+    end
+
+    ### Remove the outliers
+    for index in reverse(indicesOfOutliers)
+        splice!(bfactors, index)
+        splice!(scaleFactors, index)
+        splice!(imageNumArray, index)
+    end
+
+    #######################################################################################
+    #Fit a linear model to both the B factor values
+    modelB(x,parameters) = parameters[2] + parameters[1]*x
+    bFacFit = curve_fit(modelB, imageNumArray, bfactors, [0.0, mean(bfactors)])
+    bfacGrad = bFacFit.param[1]
+    bParamSigmas = sqrt(diag(estimate_covar(bFacFit)))
+    bGradSigma, bInterceptSigma = bParamSigmas[1], bParamSigmas[2]
+    bIntercept = bFacFit.param[2]
+
+    #Use kernel density estimation to generate the distribution of scale factors
+    kdeScaleFacs = kde(scaleFactors, 0:kdeStep:maximum(scaleFactors))
+    modalScale = kdeScaleFacsFull.x[findlast(kdeScaleFacs.density, maximum(kdeScaleFacs.density))]
+    meanScale = mean(scaleFactors)
+    sigmaScale = std(scaleFactors)
+
+    ########################################################################################
+    #Plot the results
     xvals = linspace(0, length(imageArray), 100)
-    yvals = model(xvals, fit.param)
-    plotTitle = @sprintf("Line Gradient: %.4f", fit.param[2])
+    yvalsB = modelB(xvals, bFacFit.param)
+
+    ### plot B factor graph
+    plotTitleB = @sprintf("B factors after outlier removal. Gradient: %.4f, Intercept: %.4f", bFacFit.param[1], bFacFit.param[2])
     bfactPlt = plot(
-    layer(x=xvals, y=yvals, Geom.line, Theme(default_color=getColors[1])),
+    layer(x=xvals, y=yvalsB, Geom.line, Theme(default_color=getColors[1])),
     layer(x=imageNumArray, y=bfactors, Geom.point, Theme(default_color=getColors[2])),
     Guide.xlabel("Image Number"), Guide.ylabel("B-factor"),
     Guide.manual_color_key("Colour Key",["Line of best fit", "Data"],[getColors[1],getColors[2]]),
-    Guide.title(plotTitle)
+    Guide.title(plotTitleB)
     )
-    if isempty(outputImageDir)
-        outputPlotLocation = @sprintf("bfacPlot.pdf")
-    else
-        outputPlotLocation = @sprintf("%s/bfacPlot.pdf",outputImageDir)
-    end
-    draw(PDF(outputPlotLocation, 12cm, 9cm), bfactPlt)
 
-    if displayBfacPlot
-        display(bfactPlt)
+    ### plot Scale factor graph
+    plotTitleScale = @sprintf("Scale Factors after outlier removal. modal value: %.4f, mean value: %.4f", modalScale, meanScale)
+    scalefactPlt = plot(
+    layer(x=xvals, y=modalScale*ones(length(xvals)), Geom.line, Theme(default_color=getColors[1], line_width=2px)),
+    layer(x=xvals, y=meanScale*ones(length(xvals)), Geom.line, Theme(default_color=getColors[3], line_width=2px)),
+    layer(x=imageNumArray, y=scaleFactors, Geom.point, Theme(default_color=getColors[2])),
+    Guide.xlabel("Image Number"), Guide.ylabel("Scale factor"),
+    Guide.manual_color_key("Colour Key",["Modal Line", "Mean Line", "Data"],[getColors[1],getColors[3],getColors[2]]),
+    Guide.title(plotTitleScale)
+    )
+
+    ###########################################################################
+    #"Undo" the damage on the b factors (assuming linear evolution)
+    correctedBfactors = bfactors - bfacGrad * imageNumArray
+    ### plot B factor Histogram factor graph
+    normBdist = fit(Normal, correctedBfactors)
+    bvals = linspace(minimum(correctedBfactors), maximum(correctedBfactors), 100)
+    bDistVals = pdf(normBdist, bvals)
+    plotTitleBdist = @sprintf("Distribution of damage corrected B factors. Mean value: %.4f", mean(correctedBfactors))
+    pltBDist = plot(
+    layer(x=bvals, y=bDistVals, Geom.line, Theme(default_color=getColors[2], line_width=2px)),
+    layer(x=correctedBfactors, Geom.histogram(bincount=100, density=true)),
+    Guide.xlabel("B factor value"), Guide.ylabel("Density value"),
+    Guide.manual_color_key("Colour Key",["Data", "Fitted Normal Distribution"],[getColors[1],getColors[2]]),
+    Guide.title(plotTitleBdist)
+    )
+
+    ### QQplot
+    normalLine(x) = x
+    zScoresCorrB = (correctedBfactors - mean(correctedBfactors))./std(correctedBfactors)
+    Gadfly.plot(qq::QQPair) = Gadfly.plot(
+    layer(x=qq.qx, y=qq.qy, Geom.point, Theme(highlight_width=0px)),
+    layer(normalLine,-3,3, Theme(default_color=getColors[2], line_width=2px)),
+    Guide.xlabel("Theoretical Normal quantiles"), Guide.ylabel("Corrected B factor quantiles"),
+    Guide.title("QQplot for the corrected B factors")
+    )
+    qqplot(x, y) = Gadfly.plot(qqbuild(x, y))
+    qqnorm(x) = qqplot(Normal(), x)
+    qqB = qqnorm(zScoresCorrB)
+
+    ### plot Scale factor Histogram factor graph
+    pltScaleDist = plot(
+    layer(x=collect(kdeScaleFacs.x), y=kdeScaleFacs.density, Geom.line, Theme(default_color=getColors[2], line_width=2px)),
+    layer(x=scaleFactors, Geom.histogram(bincount=100, density=true)),
+    Guide.xlabel("Scale factor value"), Guide.ylabel("Density value"),
+    Guide.manual_color_key("Colour Key",["Data", "Kernel Density Estimation"],[getColors[1],getColors[2]]),
+    Guide.title("Distribution of Scale factors")
+    )
+
+    if isempty(outputImageDir)
+        outputBPltAfterLocation = @sprintf("BFac_Plot_After_outlier_removal.pdf")
+        outputScalePltAfterLocation = @sprintf("ScaleFac_Plot_After_outlier_removal.pdf")
+        outputBDistLocation = @sprintf("BFac_Distribution.pdf")
+        outputScaleDistLocation = @sprintf("ScaleFac_Distribution.pdf")
+        outputBQQpltLocation = @sprintf("BFac_QQplot.pdf")
+    else
+        outputBPltAfterLocation = @sprintf("%s/BFac_Plot_After_outlier_removal.pdf", outputImageDir)
+        outputScalePltAfterLocation = @sprintf("%s/ScaleFac_Plot_After_outlier_removal.pdf", outputImageDir)
+        outputBDistLocation = @sprintf("%s/BFac_Distribution.pdf", outputImageDir)
+        outputScaleDistLocation = @sprintf("%s/ScaleFac_Distribution.pdf", outputImageDir)
+        outputBQQpltLocation = @sprintf("%s/BFac_QQplot.pdf", outputImageDir)
     end
-    return ΔB, B
+    draw(PDF(outputBPltAfterLocation, 16cm, 9cm), bfactPlt)
+    draw(PDF(outputScalePltAfterLocation, 16cm, 9cm), scalefactPlt)
+    draw(PDF(outputBDistLocation, 16cm, 9cm), pltBDist)
+    draw(PDF(outputScaleDistLocation, 16cm, 9cm), pltScaleDist)
+    draw(PDF(outputBQQpltLocation, 16cm, 9cm), qqB)
+
+    if displayPlots
+        display(bfactPlt)
+        display(pltBDist)
+        display(qqB)
+        display(scalefactPlt)
+        display(pltScaleDist)
+    end
+    return bfacGrad, bGradSigma, bIntercept, bInterceptSigma, modalScale, sigmaScale
 end
 
 ################################################################################

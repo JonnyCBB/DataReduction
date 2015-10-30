@@ -4,7 +4,10 @@ using PyCall
 using Gadfly
 using LsqFit
 using Colors
-using Compose
+using Compose #Check that I actually need this
+using Distributions
+using KernelDensity
+import Gadfly.ElementOrFunction
 
 include("ReciprocalSpaceUtils.jl")
 include("ElementDatabase.jl")
@@ -34,10 +37,13 @@ const additionalElements = ""
 
 const minRefInResBin = 50 #choose minimum number of reflections in resolution bin.
 const minRefPerImage = 3
-const displayBfacPlot = false
+const displayPlots = false
 
 const minFracCalc = 0.95
 const applyBFacTof0 = true
+
+const kdeStep = 0.0001
+const keepPercentageScaleData = 0.9
 
 const outputImageDir = "plots"
 ################################################################################
@@ -99,7 +105,7 @@ updateAtomDict!(atomDict, spacegroup)
 f0SqrdDict = calcTotalf0Sqrd(atomDict, scatteringAngles, elementDict)
 updateRefListAndImageArray!(hklList, imageArray, estimateTotalIntensityFromPartialRef)
 calcResbinMeanIntensity!(resbins, f0SqrdDict, hklList)
-changeInBfac, midBfac = calcBfactor(hklList, imageArray, resbins, outputImageDir, displayBfacPlot)
+changeInBfac, bGradSigma, bIntercept, bInterceptSigma, modalScale, sigmaScale = calcBandScaleParams(hklList, imageArray, resbins, outputImageDir, displayPlots)
 #End Section: Update atom and reflection information
 ################################################################################
 
@@ -116,7 +122,7 @@ changeInBfac, midBfac = calcBfactor(hklList, imageArray, resbins, outputImageDir
 #basically means that we're increasing our uncertainty about the
 #intensity measurement rather than trying to deterministically give an
 #estimate of the true intensity.
-tempFacDict, SFMultiplierDict = calcTempAndSFMultFactorDict(scatteringAngles, midBfac, changeInBfac, xrayWavelength)
+tempFacDict, SFMultiplierDict = calcTempAndSFMultFactorDict(scatteringAngles, bIntercept, changeInBfac, xrayWavelength)
 inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFacTof0)
 #End Section: Inflate observation errors
 ########################################################################
