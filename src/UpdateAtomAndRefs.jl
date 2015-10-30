@@ -251,10 +251,63 @@ end
 #End Section: Inflate observation errors
 ########################################################################
 
-
-########################################################################
-#Section: Get initial amplitudes
+################################################################################
+#Section: Get initial amplitudes - Method 1
 #-----------------------------------------------------------------------
+#This method doesn't require estimates from another program. This method takes
+#longer to compute than method 2 and I'm not sure that the estimates are better.
+#It adds the atomic scattering factors together and then multilplies by the
+#temperature factor.
+function getInitialAmplitudes!(hklList::Dict{Vector{Int64}, Reflection}, atomDict::Dict{ASCIIString, Int64}, scatteringAngles::Vector{Float64}, elementDict::Dict{ASCIIString, Element}, tempFacDict::Dict{Float64, Float64})
+    #First thing: calculate the initial amplitudes corrected by the initial
+    #temperature factor.
+    initialAmplitudeDict = Dict{Float64, Float64}()
+    for scatAngle in scatteringAngles
+        f0::Float64 = 0.0
+        for atom in keys(atomDict)
+            f0 += elementDict[atom].f0[scatAngle] * atomDict[atom]
+        end
+        initialAmplitudeDict[scatAngle] = f0 * tempFacDict[scatAngle]
+    end
+
+    #Now we loop through the list of reflections and assign the estimate of the
+    #initial amplitude according to the scattering angle (i.e. reflections with
+    #the same reflection angle will have the same initial amplitude as an
+    #initial guess).
+    for hkl in keys(hklList)
+        reflection = hklList[hkl]
+        reflection.amplitude = initialAmplitudeDict[reflection.scatteringAngle]
+    end
+end
+#End Section: Get initial amplitudes - Method 1
+################################################################################
+
+################################################################################
+#Section: Get initial amplitudes - Method 2
+#-----------------------------------------------------------------------
+#This method is really crude but should be quicker than the others. It basically
+#assigns the initial amplitude according to the scattering angle of the
+#reflection. It is calculated as the square root of the squared amplitudes
+#multiplied by the temperature factor.
+function getInitialAmplitudes!(hklList::Dict{Vector{Int64}, Reflection}, f0SqrdDict::Dict{Float64, Float64}, tempFacDict::Dict{Float64, Float64})
+    for hkl in keys(hklList)
+        reflection = hklList[hkl]
+        reflection.amplitude = sqrt(f0SqrdDict[reflection.scatteringAngle]) * tempFacDict[reflection.scatteringAngle]
+    end
+end
+#End Section: Get initial amplitudes - Method 2
+################################################################################
+
+################################################################################
+#Section: Get initial amplitudes - Method 3
+#-----------------------------------------------------------------------
+#This method of extracting the initial amplitudes uses the amplitudes
+#derived from the refAmpDict which is basically the amplitudes extracted
+#from the Ctruncate MTZ file. If the reflection is missing from the
+#Ctruncate output but is present in the integrated intensity file then
+#we just use the square root of the observed intensity on the image.
+#Otherwise if the intensity is negative then I just set the amplitude
+#value to zero.
 function getInitialAmplitudes!(hklList::Dict{Vector{Int64}, Reflection}, refAmpDict::Dict{Vector{Int64}, Float64}, scaleFac::Float64)
     for hkl in keys(hklList)
         maxIntensity = -1000
@@ -275,5 +328,5 @@ function getInitialAmplitudes!(hklList::Dict{Vector{Int64}, Reflection}, refAmpD
         end
     end
 end
-#End Section: Get initial amplitudes
-########################################################################
+#End Section: Get initial amplitudes - Method 3
+################################################################################

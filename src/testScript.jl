@@ -129,9 +129,17 @@ inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFac
 ########################################################################
 #Section: Extract initial guess structure factor amplitudes
 #-----------------------------------------------------------------------
-mtzDumpOutput = runMtzdump(sfFileLocation, 1200)
-refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
-getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
+# Get initial amplitudes by method 1
+# getInitialAmplitudes!(hklList, atomDict, scatteringAngles, elementDict, tempFacDict)
+
+# Get initial amplitudes by method 2
+getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
+
+# Get initial amplitudes by method 3
+# mtzDumpOutput = runMtzdump(sfFileLocation, 1200)
+# refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
+# getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
+
 #End Section: Extract initial guess structure factor amplitudes
 ########################################################################
 
