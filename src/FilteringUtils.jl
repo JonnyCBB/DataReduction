@@ -54,15 +54,15 @@ varRice(F::Float64, D::Float64, σ::Float64) = varRice(D*F, σ)
 
 This is the process function for the Kalman Filter and describes how the mean of the amplitude distribution changes after irradiation with X-rays.
 `amplitudes` is a vector of `Float64`'s that represent the amplitudes for each reflection at the previous time step.
-`D` is the structure factor multiplier (Luzzati 1952) defined in Read 1990.
-`σ` is standard deviation of the normally distributed structure factors (not the amplitudes).
+`D` is a vector of `Float64`'s that are the corresponding structure factor multipliers (Luzzati 1952) for each reflection. These are defined in Read 1990.
+`σ` is the standard deviation of the normally distributed structure factors (not the amplitudes).
 """
-function processFunction(amplitudes, D, σ)
+function processFunction(amplitudes::Vector{Float64}, D::Vector{Float64}, σ::Float64)
     newAmplitudes = Vector{Float64}(length(amplitudes))
     counter = 0
     for F in amplitudes
         counter += 1
-        newAmplitudes[counter] = meanRice(F, D, σ)
+        newAmplitudes[counter] = meanRice(F, D[counter], σ)
     end
     return newAmplitudes
 end
@@ -76,12 +76,6 @@ This is the observation function for the Kalman Filter and describes how the int
 `amplitudes` is a vector of `Float64`'s that represent the amplitudes for each reflection at the previous time step.
 `K` is the scale factor for the current diffraction image.
 """
-function observationFunction(amplitudes, K)
-    predObservations = Vector{Float64}(length(amplitudes))
-    counter = 0
-    for F in amplitudes
-        counter += 1
-        predObservations[counter] = K * F^2
-    end
-    return predObservations
+function observationFunction(amplitudes::Vector{Float64}, K::Float64)
+    return K * amplitudes.^2
 end
