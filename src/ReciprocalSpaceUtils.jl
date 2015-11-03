@@ -393,7 +393,7 @@ function calcBandScaleParams(hklList::Dict{Vector{Int64},Reflection}, imageArray
 
     ### Plot distributions before the removal of outliers so we can see the full
     #distributions.
-    n = 3 # We need three colours for the different elements of all of the plots in total
+    n = 4 # We need four colours for the different elements of all of the plots in total
     #Now we generate the distiguishable colours.
     getColors = distinguishable_colors(n, Color[LCHab(70, 60, 240)],
                    transform=c -> deuteranopic(c, 0.5),
@@ -477,7 +477,7 @@ function calcBandScaleParams(hklList::Dict{Vector{Int64},Reflection}, imageArray
     layer(x=xvals, y=meanScale*ones(length(xvals)), Geom.line, Theme(default_color=getColors[3], line_width=2px)),
     layer(x=imageNumArray, y=scaleFactors, Geom.point, Theme(default_color=getColors[2])),
     Guide.xlabel("Image Number"), Guide.ylabel("Scale factor"),
-    Guide.manual_color_key("Colour Key",["Modal Line", "Mean Line", "Data"],[getColors[1],getColors[3],getColors[2]]),
+    Guide.manual_color_key("Colour Key",["Modal Line", "Mean Line", "Data"],[getColors[3],getColors[4],getColors[2]]),
     Guide.title(plotTitleScale)
     )
 
@@ -513,9 +513,11 @@ function calcBandScaleParams(hklList::Dict{Vector{Int64},Reflection}, imageArray
     ### plot Scale factor Histogram factor graph
     pltScaleDist = plot(
     layer(x=collect(kdeScaleFacs.x), y=kdeScaleFacs.density, Geom.line, Theme(default_color=getColors[2], line_width=2px)),
+    layer(xintercept=[modalScale], Geom.vline, Theme(default_color=getColors[3], line_width=2px)),
+    layer(xintercept=[meanScale], Geom.vline, Theme(default_color=getColors[4], line_width=2px)),
     layer(x=scaleFactors, Geom.histogram(bincount=100, density=true)),
     Guide.xlabel("Scale factor value"), Guide.ylabel("Density value"),
-    Guide.manual_color_key("Colour Key",["Data", "Kernel Density Estimation"],[getColors[1],getColors[2]]),
+    Guide.manual_color_key("Colour Key",["Data", "Kernel Density Estimation","Mode","Mean"],[getColors[1],getColors[2], getColors[3], getColors[4]]),
     Guide.title("Distribution of Scale factors")
     )
 
