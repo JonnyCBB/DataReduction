@@ -1,7 +1,24 @@
 """
+# Create a HKL Index refence
+
+    createHKLIndexReferenceDict(hklList::Dict{Vector{Int64},Reflection})
+
+This function takes in the dictionary of reflections as its input and returns a dictionary that tells the user which index in an array corresponds to a given reflection.
+"""
+function createHKLIndexReferenceDict(hklList::Dict{Vector{Int64},Reflection})
+    hklIndexReference = Dict{Vector{Int64},Int64}()
+    counter = 0
+    for hkl in keys(hklList)
+        counter += 1
+        hklIndexReference[hkl] = counter
+    end
+    return hklIndexReference
+end
+
+"""
 # Get initial filtering estimate
 
-    getInitialState(hklList, f0SqrdDict)
+    getInitialState(hklList::Dict{Vector{Int64}, Reflection}, f0SqrdDict::Dict{Float64, Float64})
 
 This function takes in as input a reflection list dictionary `hklList` and a squared structure factor amplitude dictionary `f0SqrdDict` and returns a multivariate normal distribution representing the estimate of the initial state of the structure factor amplitudes of the crystal.
 """
