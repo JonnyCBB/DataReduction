@@ -13,6 +13,7 @@ include("ElementDatabase.jl")
 include("MtzdumpHandling.jl")
 include("SequenceFileParser.jl")
 include("UpdateAtomAndRefs.jl")
+include("FilteringUtils.jl")
 
 ######### Inputs ##########
 const xrayEnergy = 12.7 #Set X-ray Energy
@@ -109,9 +110,9 @@ changeInBfac, bGradSigma, bIntercept, bInterceptSigma, modalScale, sigmaScale = 
 ################################################################################
 
 
-########################################################################
+################################################################################
 #Section: Inflate observation errors
-#-----------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 #In this section we inflate the sigma values of the observed intensities
 #according to their total calculated fraction values.
 #Basically if the calculated intensity fraction is not close enough to 1
@@ -124,11 +125,11 @@ changeInBfac, bGradSigma, bIntercept, bInterceptSigma, modalScale, sigmaScale = 
 tempFacDict, SFMultiplierDict = calcTempAndSFMultFactorDict(scatteringAngles, bIntercept, changeInBfac, xrayWavelength)
 inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFacTof0)
 #End Section: Inflate observation errors
-########################################################################
+################################################################################
 
-########################################################################
+################################################################################
 #Section: Extract initial guess structure factor amplitudes
-#-----------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Get initial amplitudes by method 1
 # getInitialAmplitudes!(hklList, atomDict, scatteringAngles, elementDict, tempFacDict)
 
@@ -141,7 +142,7 @@ getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
 # getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
 
 #End Section: Extract initial guess structure factor amplitudes
-########################################################################
+################################################################################
 
 ########################################################################
 ########################################################################
@@ -149,7 +150,34 @@ getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
 ########################################################################
 ########################################################################
 ########################################################################
-########################################################################
+###########################################################################
+
+################################################################################
+#Section: Set up initial guess for the amplitudes
+#-------------------------------------------------------------------------------
+initialStateEstimate = getInitialState(hklList, f0SqrdDict)
+#End Section: Extract initial guess structure factor amplitudes
+################################################################################
 
 
-########################################################################
+################################################################################
+#Section: Perform filtering
+#-------------------------------------------------------------------------------
+######## Create an index reference for the miller indices of the reflections.
+hklIndexReference = createHKLIndexReferenceDict(hklList)
+
+for imgNum = 1:1
+    img = imageArray[imgNum]
+    processVarVector = Vector{Float64}(length(hklList))
+    observationVarVector = Vector{Float64}(length(hklList))
+    hklCounter = 0
+    for hkl in keys(hklList)
+        hklCounter += 1
+        reflection = hklList[hkl]
+    end
+end
+
+
+
+#End Section: Perform Filtering
+################################################################################
