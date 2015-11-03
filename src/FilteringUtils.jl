@@ -17,3 +17,27 @@ function getInitialState(hklList::Dict{Vector{Int64}, Reflection}, f0SqrdDict::D
     end
     return MvNormal(initialAmplitudes, diagm(initialVariance))
 end
+
+L(x) = exp(x/2) * ( (1-x)*besseli(0,-x/2) - x*besseli(1,-x/2) )
+meanRice(F, D, σ) = σ * √(π/2) * L(- ((D * F)^2)/(2σ^2) )
+varRice(F, D, σ) = 2σ^2 + (D * F)^2 - meanRice(F, D, σ)^2
+########## create Process function ##########
+function processFunction(amplitudes, D, σ)
+    newAmplitudes = Vector{Float64}(length(amplitudes))
+    counter = 0
+    for F in amplitudes
+        counter += 1
+        newAmplitudes[counter] = meanRice(F, D, σ)
+    end
+    return newAmplitudes
+end
+
+function observationFunction(amplitudes, K)
+    predObservations = Vector{Float64}(length(amplitudes))
+    counter = 0
+    for F in amplitudes
+        counter += 1
+        predObservations[counter] = K * F^2
+    end
+    return predObservations
+end
