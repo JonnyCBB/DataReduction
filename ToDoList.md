@@ -10,7 +10,7 @@
 
 ### Known Bugs
 
--	Running the program with a subset of reflections from a MOSFLM MTZ file that covers more than 1 image will throw an error because it takes the image array that is created doesn't take into account the images from the reflections that are being included. Rather it uses information from ALL batch numbers. This needs to be fixed if someone wants to only use a subset of reflections from their MTZ file. The current alternative would be to run the MTZ file through POINTLESS first and then use the MTZ file generated from the POINTLESS run.
+-	Running the program with a subset of reflections from a MOSFLM MTZ file that covers more than 1 image will throw an error because the image array that is created doesn't take into account the images from the reflections that are being included. Rather it uses information from ALL batch numbers. This needs to be fixed if someone wants to only use a subset of reflections from their MTZ file. The current alternative would be to run the MTZ file through POINTLESS first and then use the MTZ file generated from the POINTLESS run.
 -	Some reflections can be allocated a centroid phi value that isn't on an image on which it was observed (I don't know how this works but MOSFLM allows it). I have to figure out how to deal with this.
 
 ### Things that have to be done at some point.
@@ -19,9 +19,10 @@
 -	Sort out expected intensities when sequence files aren't given.
 -	Sort out the atomic composition when NCS is present.
 -	Outlier rejection
--	Sort out how the initial amplitudes are guessed if no CTruncate file is given
 -	Sort out error messages so they use '@sprintf' macros. At the moment they wont give the correct strings in general
 -   Sort out image rejection
+-   Properly comment the code.
+-   Actually output log information to the console so that the user knows what's going on.
 
 ### Things that could be done at some point
 
