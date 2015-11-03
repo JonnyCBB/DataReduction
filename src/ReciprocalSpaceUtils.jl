@@ -22,10 +22,9 @@ type DiffractionImage
     rotAngleStart::Float32
     rotAngleStop::Float32
     observationList::Dict{Vector{Int64}, ReflectionObservation}
-    scaleFactor::Float64
 end
 DiffractionImage(startAng::Float64, stopAng::Float64) = DiffractionImage(startAng,
-stopAng, Dict{Vector{Int64}, ReflectionObservation}(), 0.0)
+stopAng, Dict{Vector{Int64}, ReflectionObservation}())
 
 immutable SpaceGroup
     symbol::ASCIIString
