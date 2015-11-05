@@ -202,7 +202,7 @@ for hkl in keys(hklList)
     #NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD OF A
     #RICIAN DISTRIBUTION.
     #processVarVector[hklCounter] = varRice(F, D, σ)
-    processVarVector[hklCounter] = σ^2 * processVarCoeff
+    processVarVector[hklCounter] = σ^2 * reflection.epsilon * processVarCoeff
     SFMultiplierVec[hklCounter] = D
     SFSigmaVec[hklCounter] = σ
     if haskey(img.observationList, hkl)
@@ -224,7 +224,6 @@ ukfStateModel = AdditiveNonLinUKFSSM(processFunction, diagm(processVarVector), o
 ################################################################################
 #Mini Section: Peform Filtering
 #-------------------------------------------------------------------------------
-y_current = observationVector
 if imgNum == 1
     amp_pred, sigma_points = predict(ukfStateModel, initialStateEstimate, ukfParams)
 else
@@ -237,6 +236,9 @@ if any(obs_Boolean)
     if estMissObs
         observationVector, obs_cov_mat = estimateMissingObs(ukfStateModel, amp_pred, y_pred, observationVector, obs_Boolean)
         filtered_states[imgNum] = update(ukfStateModel, amp_pred, sigma_points, observationVector, obs_cov_mat)
+        ########################################################################
+        #NEED TO EXTRACT THE PARTS THAT ARE OBSERVED HERE.
+        ########################################################################
         #loglikFilt += logpdf(observe(m, filtered_states[i], calcSigmaPoints(filtered_states[i], params), observationVector)[1], observationVector)
     else
         filtered_states[imgNum] = amp_pred
