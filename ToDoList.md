@@ -6,7 +6,7 @@
 
 ### Inputs still to add:
 
-1) Scale factor from Aimless 2) Sequence file 3) Initial structure factor amplitudes from CTruncate
+1) Variance coefficients so the user can manually adjust the size of the variances
 
 ### Known Bugs
 
