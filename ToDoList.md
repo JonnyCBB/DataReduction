@@ -26,6 +26,8 @@
 
 ### Things that could be done at some point
 
+-   Add some optimisation for the variances of the process and the observation matrix.
+-   I need to take into account the uncertainties of our estimates of the scale factor and the B factor. Looks like this could be done with application of the total law of variance or marginalising the conditional probabilities.
 -	My object structure isn't great. Both Reflection and Diffraction image types contain reflection Observations. This is a waste of memory. I may have to restructure this so that only Diffraction Images contain observations of reflections because that's where it seems sensible.
 -	Improve partiality fraction estimation when dealing with partially observed reflections.
 -	Could try to come up with a clever way to scale up partially observed intensities that have negatively observed values.
