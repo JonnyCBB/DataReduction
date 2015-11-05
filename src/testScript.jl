@@ -8,12 +8,12 @@ using Distributions
 using KernelDensity
 import Gadfly.ElementOrFunction
 
-include("ReciprocalSpaceUtils.jl")
-include("ElementDatabase.jl")
-include("MtzdumpHandling.jl")
-include("SequenceFileParser.jl")
-include("UpdateAtomAndRefs.jl")
-include("FilteringUtils.jl")
+# include("ReciprocalSpaceUtils.jl")
+# include("ElementDatabase.jl")
+# include("MtzdumpHandling.jl")
+# include("SequenceFileParser.jl")
+# include("UpdateAtomAndRefs.jl")
+# include("FilteringUtils.jl")
 
 ######### Inputs ##########
 const xrayEnergy = 12.7 #Set X-ray Energy
@@ -46,6 +46,9 @@ const kdeStep = 0.0001
 const keepPercentageScaleData = 0.9
 
 const outputImageDir = "plots"
+
+const processVarCoeff = 1.0
+const observationVarCoeff = 1.0
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -166,16 +169,39 @@ initialStateEstimate = getInitialState(hklList, f0SqrdDict)
 ######## Create an index reference for the miller indices of the reflections.
 hklIndexReference = createHKLIndexReferenceDict(hklList)
 
-for imgNum = 1:1
-    img = imageArray[imgNum]
-    processVarVector = Vector{Float64}(length(hklList))
-    observationVarVector = Vector{Float64}(length(hklList))
-    hklCounter = 0
-    for hkl in keys(hklList)
-        hklCounter += 1
-        reflection = hklList[hkl]
+img = imageArray[100]
+observationVector = Vector{Float64}(length(hklList))
+processVarVector = Vector{Float64}(length(hklList))
+observationVarVector = Vector{Float64}(length(hklList))
+SFMultiplierVec = Vector{Float64}(length(hklList))
+SFSigmaVec = Vector{Float64}(length(hklList))
+observationIndices = Vector{Int64}()
+scaleFactor = modalScale
+hklCounter = 0
+for hkl in keys(hklList)
+    hklCounter += 1
+    reflection = hklList[hkl]
+    D = SFMultiplierDict[reflection.scatteringAngle]
+    Σ = f0SqrdDict[reflection.scatteringAngle]
+    σ = sqrt(abs(1 - D^2)*Σ)
+    ############################################################################
+    #NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD OF A
+    #RICIAN DISTRIBUTION.
+    #processVarVector[hklCounter] = varRice(F, D, σ)
+    processVarVector[hklCounter] = σ^2 * processVarCoeff
+    SFMultiplierVec[hklCounter] = D
+    SFSigmaVec[hklCounter] = σ
+    if haskey(img.observationList, hkl)
+        push!(observationIndices, hklCounter)
+        observationVector[hklCounter] = img.observationList[hkl].intensity
+        observationVarVector[hklCounter] = img.observationList[hkl].sigI
+    else
+        observationVector[hklCounter] = NaN
+        observationVarVector[hklCounter] = (2 * scaleFactor * processFunction(reflection.amplitude, D, σ))^2 * processVarVector[hklCounter] * observationVarCoeff
     end
 end
+processFunction(amplitudes::Vector{Float64}) = processFunction(amplitudes, SFMultiplierVec, SFSigmaVec)
+observationFunction(amplitudes::Vector{Float64}) = observationFunction(amplitudes, scaleFactor)
 
 
 
