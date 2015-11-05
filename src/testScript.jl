@@ -6,6 +6,7 @@ using LsqFit
 using Colors
 using Distributions
 using KernelDensity
+using StateSpace
 import Gadfly.ElementOrFunction
 
 # include("ReciprocalSpaceUtils.jl")
@@ -49,6 +50,7 @@ const outputImageDir = "plots"
 
 const processVarCoeff = 1.0
 const observationVarCoeff = 1.0
+const estMissObs = true
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -166,10 +168,22 @@ initialStateEstimate = getInitialState(hklList, f0SqrdDict)
 ################################################################################
 #Section: Perform filtering
 #-------------------------------------------------------------------------------
+α=1e-3
+β=2.0
+κ=0.0
+ukfParams = UKFParameters(α, β, κ)
+numImages = length(imageArray)
+filtered_states = Vector{AbstractMvNormal}(numImages)
+loglikFilt = 0.0
+
 ######## Create an index reference for the miller indices of the reflections.
 hklIndexReference = createHKLIndexReferenceDict(hklList)
 
-img = imageArray[100]
+################################################################################
+#Mini Section: Extract filtering parameters
+#-------------------------------------------------------------------------------
+imgNum = 1
+img = imageArray[imgNum]
 observationVector = Vector{Float64}(length(hklList))
 processVarVector = Vector{Float64}(length(hklList))
 observationVarVector = Vector{Float64}(length(hklList))
@@ -203,7 +217,37 @@ end
 processFunction(amplitudes::Vector{Float64}) = processFunction(amplitudes, SFMultiplierVec, SFSigmaVec)
 observationFunction(amplitudes::Vector{Float64}) = observationFunction(amplitudes, scaleFactor)
 
+ukfStateModel = AdditiveNonLinUKFSSM(processFunction, diagm(processVarVector), observationFunction, diagm(observationVarVector))
+#End Mini Section: Extract filtering parameters
+################################################################################
 
+################################################################################
+#Mini Section: Peform Filtering
+#-------------------------------------------------------------------------------
+y_current = observationVector
+if imgNum == 1
+    amp_pred, sigma_points = predict(ukfStateModel, initialStateEstimate, ukfParams)
+else
+    amp_pred, sigma_points = predict(ukfStateModel, filtered_states[imgNum-1], ukfParams)
+end
+y_pred, P_xy = observe(ukfStateModel, amp_pred, sigma_points, observationVector)
+# Check for missing values in observation
+obs_Boolean = isnan(observationVector)
+if any(obs_Boolean)
+    if estMissObs
+        observationVector, obs_cov_mat = estimateMissingObs(ukfStateModel, amp_pred, y_pred, observationVector, obs_Boolean)
+        filtered_states[imgNum] = update(ukfStateModel, amp_pred, sigma_points, observationVector, obs_cov_mat)
+        #loglikFilt += logpdf(observe(m, filtered_states[i], calcSigmaPoints(filtered_states[i], params), observationVector)[1], observationVector)
+    else
+        filtered_states[imgNum] = amp_pred
+    end
+else
+    filtered_states[imgNum] = update(ukfStateModel, amp_pred, sigma_points, observationVector)
+	#loglikFilt += logpdf(observe(m, filtered_states[i], calcSigmaPoints(filtered_states[i], params), observationVector)[1], observationVector)
+end
+#loglikFilt += logpdf(amp_pred, mean(filtered_states[i]))
+#End Mini Section: Peform Filtering
+################################################################################
 
 #End Section: Perform Filtering
 ################################################################################
