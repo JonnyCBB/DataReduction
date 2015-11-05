@@ -72,17 +72,26 @@ varRice(F::Float64, D::Float64, σ::Float64) = varRice(D*F, σ)
 This is the process function for the Kalman Filter and describes how the mean of the amplitude distribution changes after irradiation with X-rays.
 `amplitudes` is a vector of `Float64`'s that represent the amplitudes for each reflection at the previous time step.
 `D` is a vector of `Float64`'s that are the corresponding structure factor multipliers (Luzzati 1952) for each reflection. These are defined in Read 1990.
-`σ` is the standard deviation of the normally distributed structure factors (not the amplitudes).
+`σ` is a vector of `Float64`'s that represent the standard deviations of the normally distributed structure factors (not the amplitudes).
 """
-function processFunction(amplitudes::Vector{Float64}, D::Vector{Float64}, σ::Float64)
+function processFunction(amplitudes::Vector{Float64}, D::Vector{Float64}, σ::Vector{Float64})
     newAmplitudes = Vector{Float64}(length(amplitudes))
     counter = 0
     for F in amplitudes
         counter += 1
-        newAmplitudes[counter] = meanRice(F, D[counter], σ)
+        ########################################################################
+        #NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD
+        #OF A RICIAN DISTRIBUTION.
+        #newAmplitudes[counter] = meanRice(F, D[counter], σ[counter])
+        newAmplitudes[counter] = D[counter] * F
     end
     return newAmplitudes
 end
+################################################################################
+#NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD OF A
+#RICIAN DISTRIBUTION.
+#processFunction(F::Float64, D::Float64, σ::Float64) = meanRice(F, D, σ)
+processFunction(F::Float64, D::Float64, σ::Float64) = D * F
 
 """
 # The Observation Function
