@@ -473,8 +473,8 @@ function calcBandScaleParams(hklList::Dict{Vector{Int64},Reflection}, imageArray
     ### plot Scale factor graph
     plotTitleScale = @sprintf("Scale Factors after outlier removal. modal value: %.4f, mean value: %.4f", modalScale, meanScale)
     scalefactPlt = plot(
-    layer(x=xvals, y=modalScale*ones(length(xvals)), Geom.line, Theme(default_color=getColors[1], line_width=2px)),
-    layer(x=xvals, y=meanScale*ones(length(xvals)), Geom.line, Theme(default_color=getColors[3], line_width=2px)),
+    layer(x=xvals, y=modalScale*ones(length(xvals)), Geom.line, Theme(default_color=getColors[3], line_width=2px)),
+    layer(x=xvals, y=meanScale*ones(length(xvals)), Geom.line, Theme(default_color=getColors[4], line_width=2px)),
     layer(x=imageNumArray, y=scaleFactors, Geom.point, Theme(default_color=getColors[2])),
     Guide.xlabel("Image Number"), Guide.ylabel("Scale factor"),
     Guide.manual_color_key("Colour Key",["Modal Line", "Mean Line", "Data"],[getColors[3],getColors[4],getColors[2]]),
