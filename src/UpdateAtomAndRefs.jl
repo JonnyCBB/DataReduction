@@ -39,7 +39,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int64},Reflection}, im
             refObservation = reflection.observations[obsNum] # get the observation object
             numPartials = length(refObservation.imageNums) # calculate the number of partial observations
             refObservation.rotCentroid = refObservation.rotCentroid/numPartials # divide by the rotCentroid number of partial observations to get the average.
-            refObservation.sigI = sqrt(refObservation.sigI) # Square the sum of the variances to get the total standard deviation.
+            refObservation.sigI = sqrt(refObservation.sigI) # Square root the sum of the variances to get the total standard deviation.
             reflection.observations[obsNum] = refObservation # return updated observation information for the reflection.
             #End Section: Update observation information
             ########################################################################
