@@ -101,7 +101,7 @@ volumeRatio(penetrationFraction::Float64) = volumeRatio(penetrationFraction, 1.0
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float64=0.1)
+function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=0.0, rotDiffTol::Float64=0.1)
     ################################################################################
     #Parameter types can be annotated if necessary to save memory if that
     #becomes an issue.
@@ -109,6 +109,9 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float6
     hklList = Dict{Vector{Int64},Reflection}()
 
     batchNumber = 0
+    numberOfImages = 0
+    rotStart = 0.0
+    rotFinish = 0.0
     numSymOps = 0
     spaceGroupNumber = 0
     spaceGroupSymbol = ""
@@ -234,17 +237,26 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float6
         #image array.
         if contains(line, "Number of Batches")
             numberOfImages = parse(Int, split(line)[6])
-            global imageArray = Array(DiffractionImage,numberOfImages)
         end
 
         #Here we look for the line containing the start and stop phi angles. When we
-        #find this line we extract the relevant angle information and create a
-        #diffraction image object in the corresponding element of the image array.
+        #find this line we extract the relevant angle information - this includes the
+        #initial rotation angle, the final rotation angle and finally the oscillation
+        #per image if it hasn't been supplied as an argument for the function.
         if contains(line, "Start & stop Phi angles (degrees)")
             batchNumber += 1
-            phiAngleInfoLine = split(line)
-            startAng, stopAng = parse(Float64, phiAngleInfoLine[7]), parse(Float64, phiAngleInfoLine[8])
-            imageArray[batchNumber] = DiffractionImage(startAng, stopAng)
+            if batchNumber == 1
+                phiAngleInfoLine = split(line)
+                rotStart = parse(Float64, phiAngleInfoLine[7])
+            elseif batchNumber == numberOfImages
+                phiAngleInfoLine = split(line)
+                rotFinish = parse(Float64, phiAngleInfoLine[8])
+            end
+            if imageOsc == 0.0
+                phiAngleInfoLine = split(line)
+                startAng, stopAng = parse(Float64, phiAngleInfoLine[7]), parse(Float64, phiAngleInfoLine[8])
+                imageOsc = stopAng - startAng
+            end
         end
         #End of Section: Parse batch/image phi angle information
         ############################################################################
@@ -492,6 +504,13 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, rotDiffTol::Float6
         end
         #End of Section: Extract reflection data.
         ############################################################################
+    end
+
+    numEffectiveImages = Int((rotFinish - rotStart)/imageOsc)
+    imageArray = Vector{DiffractionImage}(numEffectiveImages)
+    for imgNum = 1:numEffectiveImages
+        oscStart = rotStart + (imgNum - 1) * imageOsc
+        imageArray[imgNum] = DiffractionImage(oscStart, oscStart+imageOsc)
     end
 
     return spacegroup, unitcell, hklList, imageArray

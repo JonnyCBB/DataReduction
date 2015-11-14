@@ -36,6 +36,8 @@ const numMtzColsIntLineCTruncate = 6
 const estimateTotalIntensityFromPartialRef = true #Estimate the total intensity from partial information.
 const additionalElements = ""
 
+const imageOscillation = 1.0 #degrees of oscillation for each image.
+
 const minRefInResBin = 50 #choose minimum number of reflections in resolution bin.
 const minRefPerImage = 3
 const displayPlots = false
@@ -76,7 +78,7 @@ additionalElements!(atomDict, additionalElements)
 #This section implements the methods to extract the integrated intensity
 #information using MTZ Dump.
 mtzdumpOutput = runMtzdump(integrationFileLocation, numOfRefs)
-spacegroup, unitcell, hklList, imageArray = parseMosflmMTZDumpOutput(mtzdumpOutput)
+spacegroup, unitcell, hklList, imageArray = parseMosflmMTZDumpOutput(mtzdumpOutput, imageOscillation)
 #End Section: Inputs - Extract reflection information
 ################################################################################
 
