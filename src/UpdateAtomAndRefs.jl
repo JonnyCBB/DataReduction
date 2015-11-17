@@ -141,14 +141,18 @@ end
 #Section: Inflate observation errors
 #-----------------------------------------------------------------------
 #In this section we inflate the sigma values of the observed intensities
-#according to their total calculated fraction values.
-#Basically if the calculated intensity fraction is not close enough to 1
+#according to their total calculated fraction values (1) and also account for
+#errors in making full reflection intensity estimates from partially observed
+#data (2).
+#(1) If the calculated intensity fraction is not close enough to 1
 #then this means that the true observed intensity measurement has not
 #been fully measured. Rather than estimating this true observed
 #intensity we instead inflate the sigma value for the reflection. This
-#basically means that we're increasing our uncertainty about the
-#intensity measurement rather than trying to deterministically give an
-#estimate of the true intensity.
+#means that we're increasing our uncertainty about the intensity measurement
+#rather than trying to deterministically give an estimate of the true
+#intensity.
+#(2) If we combine partials we have to account for the fact that they were
+#observed at different times i.e. on different images.
 function inflateObservedSigmas!(imageArray::Vector{DiffractionImage}, hklList::Dict{Vector{Int64},Reflection}, ΔB::Float64, minFracCalc::Float64=0.99, applyBFacTof0::Bool=true)
     rotStart = imageArray[1].rotAngleStart
     rotEnd = imageArray[end].rotAngleStop
