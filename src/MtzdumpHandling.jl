@@ -110,6 +110,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
 
     batchNumber = 0
     numberOfImages = 0
+    actualImageOsc = 0.0
     rotStart = 0.0
     rotFinish = 0.0
     numSymOps = 0
@@ -252,10 +253,16 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
                 phiAngleInfoLine = split(line)
                 rotFinish = parse(Float64, phiAngleInfoLine[8])
             end
-            if imageOsc == 0.0
+            #Calculate the actual rotation per image
+            if actualImageOsc == 0.0
                 phiAngleInfoLine = split(line)
                 startAng, stopAng = parse(Float64, phiAngleInfoLine[7]), parse(Float64, phiAngleInfoLine[8])
-                imageOsc = stopAng - startAng
+                actualImageOsc = stopAng - startAng
+            end
+            #If the user hasn't defined the actual image oscillation then set it
+            #equal to the actual image oscillation.
+            if imageOsc == 0.0
+                imageOsc = actualImageOsc
             end
         end
         #End of Section: Parse batch/image phi angle information
@@ -379,7 +386,14 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
                         hklList[origHKL] = Reflection(origHKL, hkl, spacegroup, unitcell, xrayWavelength)
                     end
                     #Extract some important reflection information.
-                    imageNumber = parse(Int, nonEmptyLine[colNumBatch])
+                    trueImageNumber = parse(Int, nonEmptyLine[colNumBatch])
+                    ############################################################
+                    #*****
+                    #The rounding is set to 3 decimal places in the line below.
+                    #It would be more general if it was possible to determine
+                    #the precision from the user defined input.
+                    ############################################################
+                    imageNumber = Int(ceil(round(actualImageOsc/imageOsc * trueImageNumber, 3)))
                     Isum, sigIsum = parse(Float64, nonEmptyLine[colNumIsum]), parse(Float64, nonEmptyLine[colNumSigIsum])
                     Ipr, sigIpr = parse(Float64, nonEmptyLine[colNumIpr]), parse(Float64, nonEmptyLine[colNumSigIpr])
 
@@ -459,10 +473,10 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
                             sameObservation = false
                             for obsNum = 1:numOfExistingObs #Loop through observations
                                 refObservation = hklList[origHKL].observations[obsNum]
-                                imagesOfObs = hklList[origHKL].observations[obsNum].imageNums
-                                for image in imagesOfObs #Loop through images
+                                imageNumsOfObs = hklList[origHKL].observations[obsNum].imageNums
+                                for obsImageNum in imageNumsOfObs #Loop through images
                                     if misymNum == refObservation.misym #Check that the M/ISYM number is the same
-                                        if imageNumber == image + 1 || imageNumber == image - 1 #Check is the image is consecutive
+                                        if obsImageNum - 1 ≤ imageNumber ≤ obsImageNum + 1 #Check that the image is consecutive
                                             #If it is consecutive then update the corresponding observation information.
                                             sameObservation = true
                                             if isnan(rot) || isnan(intensity) || isnan(sigIsum) || isnan(fractionCalc)
