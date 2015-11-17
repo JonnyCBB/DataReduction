@@ -24,6 +24,7 @@
 -   Sort out image rejection
 -   Properly comment the code.
 -   Actually output log information to the console so that the user knows what's going on.
+- Sort out rounding of values when sorting out the image numbers during the MTZ file parsing. I've left a "*****" comment where this needs to be sorted. 
 
 ### Things that could be done at some point
 
