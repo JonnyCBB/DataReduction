@@ -9,12 +9,12 @@ using KernelDensity
 using StateSpace
 import Gadfly.ElementOrFunction
 
-# include("ReciprocalSpaceUtils.jl")
-# include("ElementDatabase.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
-# include("FilteringUtils.jl")
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
+include("FilteringUtils.jl")
 
 ######### Inputs ##########
 const xrayEnergy = 12.7 #Set X-ray Energy
@@ -27,7 +27,7 @@ const sfFileLocation = "integration_scaling_files\\test450images_scaled1.mtz"
 const useSeqFile = true #Choose whether to use a sequence file to get variance and B-factor estimates
 const separateSymEquivs = false #Merge symmetry equivalents or keep them separate.
 const sigIDiffTol = 0.1 #Tolerance level for difference between sigIpr and sigIsum
-const numOfRefs = 20000 #Number of reflections to be used in data reduction analysis.
+const numOfRefs = 10000 #Number of reflections to be used in data reduction analysis.
 
 const intensityType = "Combined" #How to deal with Ipr and Isum
 const numMtzColsFor1stRefLine = 9 #Number of columns in 1st MTZ Dump line for reflection information
@@ -51,7 +51,8 @@ const keepPercentageScaleData = 0.9
 const outputImageDir = "plots"
 
 const processVarCoeff = 1.0
-const observationVarCoeff = 1.0
+const observationVarCoeff = 100000.0
+const measurementVarCoeff = 1.0
 const estMissObs = true
 ################################################################################
 #Section: Create plot directory
@@ -199,21 +200,25 @@ for hkl in keys(hklList)
     reflection = hklList[hkl]
     D = SFMultiplierDict[reflection.scatteringAngle]
     Σ = f0SqrdDict[reflection.scatteringAngle]
-    σ = sqrt(abs(1 - D^2)*Σ)
+    σ = sqrt(abs(1.0 - D^2)*Σ)
     ############################################################################
     #NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD OF A
     #RICIAN DISTRIBUTION.
     #processVarVector[hklCounter] = varRice(F, D, σ)
-    processVarVector[hklCounter] = σ^2 * reflection.epsilon * processVarCoeff
+    if reflection.isCentric
+        processVarVector[hklCounter] = 2.0 * σ^2 * reflection.epsilon * processVarCoeff
+    else
+        processVarVector[hklCounter] = σ^2 * reflection.epsilon * processVarCoeff
+    end
     SFMultiplierVec[hklCounter] = D
     SFSigmaVec[hklCounter] = σ
     if haskey(img.observationList, hkl)
         push!(observationIndices, hklCounter)
         observationVector[hklCounter] = img.observationList[hkl].intensity
-        observationVarVector[hklCounter] = img.observationList[hkl].sigI
+        observationVarVector[hklCounter] = img.observationList[hkl].sigI^2 * measurementVarCoeff
     else
         observationVector[hklCounter] = NaN
-        observationVarVector[hklCounter] = (2 * scaleFactor * processFunction(reflection.amplitude, D, σ))^2 * processVarVector[hklCounter] * observationVarCoeff
+        observationVarVector[hklCounter] = (2.0 * scaleFactor * processFunction(reflection.amplitude, D, σ))^2 * processVarVector[hklCounter] * observationVarCoeff
     end
 end
 processFunction(amplitudes::Vector{Float64}) = processFunction(amplitudes, SFMultiplierVec, SFSigmaVec)
