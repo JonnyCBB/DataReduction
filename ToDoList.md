@@ -1,12 +1,13 @@
 ### Next steps:
 
--	Write Unscented Kalman Filter algorithm
--	Create Parameters for the Unscented Kalman Filter algorithm
+- Need to sort out the initial covariance matrix. I think the current implementation gives variances that are too high to give anything useful.
+- Implement smoother
+- Calculate the log likelihood value and the metric value for the user.
 -	write tests for input parser/Create structure for Reflection/SpaceGroup/Resbin types.
 
 ### Inputs still to add:
 
-1) Variance coefficients so the user can manually adjust the size of the variances
+Not sure of any more yet.
 
 ### Known Bugs
 
@@ -24,7 +25,7 @@
 -   Sort out image rejection
 -   Properly comment the code.
 -   Actually output log information to the console so that the user knows what's going on.
-- Sort out rounding of values when sorting out the image numbers during the MTZ file parsing. I've left a "*****" comment where this needs to be sorted. 
+- Sort out rounding of values when sorting out the image numbers during the MTZ file parsing. I've left a "*****" comment where this needs to be sorted.
 
 ### Things that could be done at some point
 
@@ -36,3 +37,4 @@
 -	Sort out how reflection columns are read from MTZ Dump.
 -	Be explicit with reading in the column information from the MTZ Dump output from the CTruncate file. At the moment I've just looked at the column numbers and inserted the numbers straight from the output file. This may not be consistent if other input files are read.
 -   Perform a weighted average when calculating the mean intensity of resolution bins from the images.
+- Only a single MISYM value is reported when multiple observations of a reflection are observed on a single image. This should be changed. Probably best to make this a vector data type so it can store multiple values of the MISYM.
