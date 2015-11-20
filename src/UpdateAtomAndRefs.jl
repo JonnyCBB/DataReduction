@@ -54,7 +54,39 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int64},Reflection}, im
             for imageNum in refObservation.imageNums #loop through the images
                 diffractionImage = imageArray[imageNum]
                 if diffractionImage.rotAngleStart <= refObservation.rotCentroid < diffractionImage.rotAngleStop
-                    diffractionImage.observationList[hkl] = refObservation
+                    #Check to see if the current image already has an observation of a given reflection.
+                    #If the reflection hasn't been observed on the diffraction image before then we can
+                    #simply add the reflection to the list. If the reflection has already an observation on
+                    #that image (e.g. a symmetry equivalent) then we can assume that they should have the same
+                    #true intensity but they differ due to measurement error. Therefore the intensity of the
+                    #reflection will be the average of the symmetry equivalents.
+                    if !haskey(diffractionImage.observationList, hkl)
+                        diffractionImage.observationList[hkl] = refObservation
+                    else
+                        duplicateObservation = diffractionImage.observationList[hkl]
+                        #If the fraction of the reflection calculated by the integration software is above a certain
+                        #amount then combine the data for the multiple observations by performing weigthed averages
+                        #of the corresponding data.
+                        if duplicateObservation.fractionCalc >= minFracCalc
+                            newIntensity = (duplicateObservation.fractionCalc * duplicateObservation.intensity + refObservation.fractionCalc * refObservation.intensity)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+
+                            newSigma = sqrt(duplicateObservation.fractionCalc^2 * duplicateObservation.sigI^2 + refObservation.fractionCalc^2 * refObservation.sigI^2/(duplicateObservation.fractionCalc^2 + refObservation.fractionCalc^2))
+
+                            newImageNums = [duplicateObservation.imageNums; refObservation.imageNums]
+                            newImageIntensities = [duplicateObservation.imageIntensities; refObservation.imageIntensities]
+                            newFractionCalc = (duplicateObservation.fractionCalc + refObservation.fractionCalc)/2
+
+                            newRotCentroid = (duplicateObservation.fractionCalc * duplicateObservation.rotCentroid + refObservation.fractionCalc * refObservation.rotCentroid)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+
+                            ####################################################
+                            #THE MYISYM SHOULD BE SORTED OUT!!!
+                            ####################################################
+                            newMISYM = duplicateObservation.misym
+
+                            #Create the new combined observation object.
+                            diffractionImage.observationList[hkl] = ReflectionObservation(newRotCentroid, newFractionCalc, newMISYM, newIntensity, newSigma, newImageNums, newImageIntensities)
+                        end
+                    end
                     foundCentroidImage = true
                     break
                 elseif numPartials == 1
