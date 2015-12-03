@@ -36,7 +36,7 @@ Now we use the function runMtzdump on an MTZ file with the name "MyMTZFile.mtz"
 
 `mtzOutput` is now an ASCIIString type object containing the output from the MTZDump run.
 """
-function runMtzdump(mtzFile::ASCIIString, numRef::Int32=20)
+function runMtzdump(mtzFile::ASCIIString, numRef::Int32=Float32(20))
     inputParams = MtzdumpParams("mtzdumpinputs.txt", numRef) #Create MtzdumpParams object
     mtzdumpInputFile = open(inputParams.inputFilename,"w") #Create text file for writing
     write(mtzdumpInputFile, @sprintf("nref %d\r\n", inputParams.nref)) # write number of reflections line
@@ -73,10 +73,10 @@ function combineObsIntensity(Ipr::Float32, Isum::Float32, LP::Float32)
     if abs(Ipr + Isum) < 0.001
         return Ipr
     else
-        Imid = (Ipr + Isum)/2
+        Imid = (Ipr + Isum)/2.0
         Iraw = Imid * LP
         Ipower = 3
-        w = 1 / (1 + (Iraw/Imid)^Ipower)
+        w = 1.0 / (1.0 + (Iraw/Imid)^Ipower)
         Icombined = w*Ipr + (1-w)*Isum
         return Icombined
     end
@@ -108,44 +108,44 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
     ################################################################################
     hklList = Dict{Vector{Int16},Reflection}()
 
-    batchNumber = 0
-    numberOfImages = 0
-    actualImageOsc = 0.0
-    rotStart = 0.0
-    rotFinish = 0.0
-    numSymOps = UInt8(0)
-    spaceGroupNumber = 0
-    spaceGroupSymbol = ""
-    symmetryOps = Array(Matrix{Float32})
-    symOpsLines = false
+    batchNumber::UInt16 = 0
+    numberOfImages::UInt16 = 0
+    actualImageOsc::Float32 = 0.0
+    rotStart::Float32 = 0.0
+    rotFinish::Float32 = 0.0
+    numSymOps::UInt8 = 0
+    spaceGroupNumber::UInt8 = 0
+    spaceGroupSymbol::ASCIIString = ""
+    symmetryOps = Array(Matrix{Float32},1)
+    symOpsLines::Bool = false
     symOpMatrix = Array(Float32,4,4)
-    symOpMatrixRow = 1
-    symOpNumber = 0
-    searchCellDims = false
-    searchReflections = false
-    fileStatsLines = false
-    colNumH = 0
-    colNumK = 0
-    colNumL = 0
-    colNumMIsym = 0
-    colNumBatch = 0
-    colNumIsum = 0
-    colNumSigIsum = 0
-    colNumIpr = 0
-    colNumSigIpr = 0
-    colNumFracCalc = 0
-    colNumRot = 0
-    colNumLP = 0
-    refLine = 0
-    hkl = [0, 0, 0]
+    symOpMatrixRow::UInt8 = 1
+    symOpNumber::UInt8 = 0
+    searchCellDims::Bool = false
+    searchReflections::Bool = false
+    fileStatsLines::Bool = false
+    colNumH::UInt8 = 0
+    colNumK::UInt8 = 0
+    colNumL::UInt8 = 0
+    colNumMIsym::UInt8 = 0
+    colNumBatch::UInt8 = 0
+    colNumIsum::UInt8 = 0
+    colNumSigIsum::UInt8 = 0
+    colNumIpr::UInt8 = 0
+    colNumSigIpr::UInt8 = 0
+    colNumFracCalc::UInt8 = 0
+    colNumRot::UInt8 = 0
+    colNumLP::UInt8 = 0
+    refLine::UInt8 = 0
+    hkl = Vector{Int16}(3)
     origHKL = Vector{Int16}(3)
-    imageNumber = 0
-    misymNum = 0
-    Isum, sigIsum = 0.0, 0.0
-    Ipr, sigIpr = 0.0, 0.0
-    fractionCalc = 0.0
-    rot = 0.0
-    LP = 0.0
+    imageNumber::UInt16 = 0
+    misymNum::UInt16 = 0
+    Isum::Float32, sigIsum::Float32 = 0.0, 0.0
+    Ipr::Float32, sigIpr::Float32 = 0.0, 0.0
+    fractionCalc::Float32 = 0.0
+    rot::Float32 = 0.0
+    LP::Float32 = 0.0
 
     #Split the MTZ Dump output log by the newline character
     mtzdumpOutputLines = split(mtzDumpOutput, "\n")
@@ -158,7 +158,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
         #the space group. This allows us to use that number to preallocate an array
         #of the right size for all of the symmetry operators
         if contains(line, "Number of Symmetry Operations")
-            numSymOps = UInt8(parse(Int, split(line)[7]))
+            numSymOps = parse(UInt8, split(line)[7])
             symmetryOps = Array(Matrix{Float16}, numSymOps)
         end
         #End of Section: Parse number of symmetry Operations
@@ -173,7 +173,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
         #and symbol from the corresponding lines in the MTZ dump output.
         if contains(line, "Space Group")
             spaceGroupLine = split(line)
-            spaceGroupNumber = UInt8(parse(Int, spaceGroupLine[5]))
+            spaceGroupNumber = parse(UInt8, spaceGroupLine[5])
             spaceGroupSymbol = spaceGroupLine[6][2:end-1]
         end
 
@@ -237,7 +237,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
         #each image. First we obtain the number of images so we can preallocate the
         #image array.
         if contains(line, "Number of Batches")
-            numberOfImages = parse(Int, split(line)[6])
+            numberOfImages = parse(UInt16, split(line)[6])
         end
 
         #Here we look for the line containing the start and stop phi angles. When we
@@ -248,15 +248,15 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
             batchNumber += 1
             if batchNumber == 1
                 phiAngleInfoLine = split(line)
-                rotStart = parse(Float64, phiAngleInfoLine[7])
+                rotStart = parse(Float32, phiAngleInfoLine[7])
             elseif batchNumber == numberOfImages
                 phiAngleInfoLine = split(line)
-                rotFinish = parse(Float64, phiAngleInfoLine[8])
+                rotFinish = parse(Float32, phiAngleInfoLine[8])
             end
             #Calculate the actual rotation per image
             if actualImageOsc == 0.0
                 phiAngleInfoLine = split(line)
-                startAng, stopAng = parse(Float64, phiAngleInfoLine[7]), parse(Float64, phiAngleInfoLine[8])
+                startAng, stopAng = parse(Float32, phiAngleInfoLine[7]), parse(Float32, phiAngleInfoLine[8])
                 actualImageOsc = stopAng - startAng
             end
             #If the user hasn't defined the actual image oscillation then set it
@@ -295,29 +295,29 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
                 #The following code checks the type of the column label and assigns
                 #the corresponding column number
                 if "H" == columnLabel
-                    colNumH = parse(Int, nonEmptyLine[1])
+                    colNumH = parse(UInt8, nonEmptyLine[1])
                 elseif "K" == columnLabel
-                    colNumK = parse(Int, nonEmptyLine[1])
+                    colNumK = parse(UInt8, nonEmptyLine[1])
                 elseif "L" == columnLabel
-                    colNumL = parse(Int, nonEmptyLine[1])
+                    colNumL = parse(UInt8, nonEmptyLine[1])
                 elseif "M/ISYM" == columnLabel
-                    colNumMIsym = parse(Int, nonEmptyLine[1])
+                    colNumMIsym = parse(UInt8, nonEmptyLine[1])
                 elseif "BATCH" == columnLabel
-                    colNumBatch = parse(Int, nonEmptyLine[1])
+                    colNumBatch = parse(UInt8, nonEmptyLine[1])
                 elseif "I" == columnLabel
-                    colNumIsum = parse(Int, nonEmptyLine[1])
+                    colNumIsum = parse(UInt8, nonEmptyLine[1])
                 elseif "SIGI" == columnLabel
-                    colNumSigIsum = parse(Int, nonEmptyLine[1])
+                    colNumSigIsum = parse(UInt8, nonEmptyLine[1])
                 elseif "IPR" == columnLabel
-                    colNumIpr = parse(Int, nonEmptyLine[1])
+                    colNumIpr = parse(UInt8, nonEmptyLine[1])
                 elseif "SIGIPR" == columnLabel
-                    colNumSigIpr = parse(Int, nonEmptyLine[1])
+                    colNumSigIpr = parse(UInt8, nonEmptyLine[1])
                 elseif "FRACTIONCALC" == columnLabel
-                    colNumFracCalc = parse(Int, nonEmptyLine[1])
+                    colNumFracCalc = parse(UInt8, nonEmptyLine[1])
                 elseif "ROT" == columnLabel
-                    colNumRot = parse(Int, nonEmptyLine[1])
+                    colNumRot = parse(UInt8, nonEmptyLine[1])
                 elseif "LP" == columnLabel
-                    colNumLP = parse(Int, nonEmptyLine[1])
+                    colNumLP = parse(UInt8, nonEmptyLine[1])
                 end
             end
         end
@@ -349,7 +349,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
                 if length(nonEmptyLine) == numMtzColsFor1stRefLine #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
                     refLine = 1
                     hkl = [parse(Int16,nonEmptyLine[colNumH]), parse(Int16,nonEmptyLine[colNumK]), parse(Int16,nonEmptyLine[colNumL])]
-                    misymNum = parse(Float64, nonEmptyLine[colNumMIsym])
+                    misymNum = parse(UInt16, nonEmptyLine[colNumMIsym])
                     if separateSymEquivs #Check if we want to keep symmetry equivalents separate.
                         ############################################################
                         #Mini Section: Get original HKL indices
@@ -386,14 +386,32 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
                         hklList[origHKL] = Reflection(origHKL, hkl, spacegroup, unitcell, xrayWavelength)
                     end
                     #Extract some important reflection information.
-                    trueImageNumber = parse(Int, nonEmptyLine[colNumBatch])
+                    trueImageNumber = parse(UInt16, nonEmptyLine[colNumBatch])
                     ############################################################
                     #*****
+                    #!!!!!!!!!!!!!!!!!!!!JONNY SORT THIS OUT!!!!!!!!!!!!!!!!!!!!
+                    #!!!!!!!!!!!!!!!!!!!!JONNY SORT THIS OUT!!!!!!!!!!!!!!!!!!!!
+                    #!!!!!!!!!!!!!!!!!!!!JONNY SORT THIS OUT!!!!!!!!!!!!!!!!!!!!
+                    #THIS CAN CAUSE PROBLEMS WITH THE INDEXING GOING OUT OF
+                    #BOUNDS WHEN ALLOCATING REFLECTIONS IMAGES IN A DOWNSTREAM
+                    #METHOD. THIS HAPPENS BECAUSE THE ERROR PROPAGATION OF THE
+                    #DECIMAL CALCULATIONS BECOMES TOO HIGH AND CALCULATES AN
+                    #IMAGE THAT IS OUT OF BOUNDS.
+                    #
+                    #A QUICK FIX WOULD BE TO INCLUDE AN ERROR STATEMENT AT THE
+                    #END OF THIS FUNCTION TO CATCH THIS.
                     #The rounding is set to 3 decimal places in the line below.
                     #It would be more general if it was possible to determine
-                    #the precision from the user defined input.
+                    #the precision from the user defined input. A
                     ############################################################
-                    imageNumber = Int16(ceil(round(actualImageOsc/imageOsc * trueImageNumber, 3)))
+                    imageNumber = Int16(ceil(round(actualImageOsc/imageOsc * trueImageNumber, 1)))
+                    if imageNumber > Int16(45)
+                        println("Actual Image Oscillation: ", actualImageOsc)
+                        println("Chosen Image Oscillation: ", imageOsc)
+                        println("True Image Number: ", trueImageNumber)
+                        println("Image number calculated: ", imageNumber)
+                        error("you know how it is")
+                    end
                     Isum, sigIsum = parse(Float32, nonEmptyLine[colNumIsum]), parse(Float32, nonEmptyLine[colNumSigIsum])
                     Ipr, sigIpr = parse(Float32, nonEmptyLine[colNumIpr]), parse(Float32, nonEmptyLine[colNumSigIpr])
 
@@ -421,7 +439,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
                     refLine += 1
                     if refLine == 2
                         #Extract the relevant information in this line.
-                        fractionCalc, rot = parse(Float64, nonEmptyLine[colNumFracCalc - numMtzColsFor1stRefLine]), parse(Float64, nonEmptyLine[colNumRot - numMtzColsFor1stRefLine])
+                        fractionCalc, rot = parse(Float32, nonEmptyLine[colNumFracCalc - numMtzColsFor1stRefLine]), parse(Float32, nonEmptyLine[colNumRot - numMtzColsFor1stRefLine])
                     elseif refLine == 3
                         #Extract the Lorentz-Polarisation correction factor from
                         #this line
@@ -443,7 +461,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
                         elseif uppercase(intensityType) == "PROFILE"
                             intensity = Ipr
                         else
-                            intensity = combineObsIntensity(Ipr, Isum, LP)
+                            intensity = convert(Float32, combineObsIntensity(Ipr, Isum, LP))
                         end
 
                         #Here we need to check whether the current observation of
@@ -469,8 +487,8 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
                             #the partial observation was observed is a consectuive
                             #image of an existing observation object AND it has
                             #the same M/ISYM number.
-                            numOfExistingObs = length(hklList[origHKL].observations)
-                            sameObservation = false
+                            numOfExistingObs::UInt32 = length(hklList[origHKL].observations)
+                            sameObservation::Bool = false
                             for obsNum = 1:numOfExistingObs #Loop through observations
                                 refObservation = hklList[origHKL].observations[obsNum]
                                 imageNumsOfObs = hklList[origHKL].observations[obsNum].imageNums
@@ -521,6 +539,12 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
     end
 
     numEffectiveImages = Int((rotFinish - rotStart)/imageOsc)
+    ############################################################################
+    #INSERT ERROR STATEMENT HERE!
+    #ESSENTIALLY WE WANT TO CHECK IF THERE ARE ANY CALCULATED IMAGE NUMBERS FOR
+    #REFLECTION OBSERVATIONS THAT ARE HIGHER THAN THE numEffectiveImages VALUE.
+    #WRITE THIS HERE
+    ############################################################################
     imageArray = Vector{DiffractionImage}(numEffectiveImages)
     for imgNum = 1:numEffectiveImages
         oscStart = Float32(rotStart + (imgNum - 1) * imageOsc)
@@ -537,13 +561,13 @@ function parseCTruncateMTZDumpOutput(mtzDumpOutput::ASCIIString)
     #Split the MTZ Dump output log by the newline character
     mtzdumpOutputLines = split(mtzDumpOutput, "\n")
 
-    searchReflections = false
-    firstRef = true
-    hkl = [0,0,0]
-    refLine = 0
-    refAmpDict = Dict{Vector{Int64},Float64}()
-    scaleFac = 0.0
-    scaledAmplitude = 0.0
+    searchReflections::Bool = false
+    firstRef::Bool = true
+    hkl = Vector{Int16}(3)
+    refLine::UInt8 = 0
+    refAmpDict = Dict{Vector{Int16},Float32}()
+    scaleFac::Float32 = 0.0
+    scaledAmplitude::Float32 = 0.0
     for line in mtzdumpOutputLines
         if contains(line, "LIST OF REFLECTIONS")
             searchReflections = true
@@ -553,8 +577,8 @@ function parseCTruncateMTZDumpOutput(mtzDumpOutput::ASCIIString)
             nonEmptyLine = split(line) #split the line by whitespace
             if isnumber(nonEmptyLine[1]) # Check the first non-whitespace string can be parsed as numeric (this only works for integers)
                 if length(nonEmptyLine) == numMtzColsFor1stRefLine #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
-                    hkl = [parse(Int,nonEmptyLine[1]), parse(Int,nonEmptyLine[2]), parse(Int,nonEmptyLine[3])]
-                    scaledAmplitude = parse(Float64,nonEmptyLine[4])
+                    hkl = [parse(Int16,nonEmptyLine[1]), parse(Int16,nonEmptyLine[2]), parse(Int16,nonEmptyLine[3])]
+                    scaledAmplitude = parse(Float32,nonEmptyLine[4])
                     refAmpDict[hkl] = scaledAmplitude
                 else
                     #If the number of columns is not the same as the expected ones then this throws an error because the parser will fail in that case.
@@ -565,7 +589,7 @@ function parseCTruncateMTZDumpOutput(mtzDumpOutput::ASCIIString)
                 if firstRef
                     if length(nonEmptyLine) == numMtzColsIntLineCTruncate #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
                         refLine += 1
-                        intensity = parse(Float64, nonEmptyLine[4])
+                        intensity = parse(Float32, nonEmptyLine[4])
                         scaleFac = scaledAmplitude / sqrt(intensity)
                         firstRef = false
                     else

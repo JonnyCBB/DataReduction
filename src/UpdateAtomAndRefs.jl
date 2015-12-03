@@ -52,6 +52,10 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
             #the rotation centroid of the reflection.
             foundCentroidImage = false #Check whether an image containing the centroid of the reflection has been found.
             for imageNum in refObservation.imageNums #loop through the images
+                if imageNum > length(imageArray)
+                    println(hkl)
+                    error("Bounds exceeded")
+                end
                 diffractionImage = imageArray[imageNum]
                 if diffractionImage.rotAngleStart <= refObservation.rotCentroid < diffractionImage.rotAngleStop
                     #Check to see if the current image already has an observation of a given reflection.
@@ -356,7 +360,7 @@ function getInitialAmplitudes!(hklList::Dict{Vector{Int16}, Reflection}, refAmpD
                     maxIntensity = observation.intensity
                 end
             end
-            if maxIntensity > 0
+            if maxIntensity > 0.0
                 reflection.amplitude = sqrt(maxIntensity)
             else
                 reflection.amplitude = 0.0

@@ -22,23 +22,22 @@ end
 #############################################################
 
 function createElementDictionary()
-    maxColorValue = 255
     elementDictionary = Dict{ASCIIString, Element}()
-    atmScatFacDict = Dict{Float64, Float64}()
+    atmScatFacDict = Dict{Float32, Float32}()
     cmFile = open("ElementInformation\\Cromer-Mann_Coefficients.txt")
     for line in eachline(cmFile)
         if line[1:2] == "#S" && length(split(line)) > 3
             symbol = uppercase(split(line)[3])
             atomicNumber = parse(Int,split(line)[2])
-            a1 = parse(Float64,split(line)[4])
-            a2 = parse(Float64,split(line)[5])
-            a3 = parse(Float64,split(line)[6])
-            a4 = parse(Float64,split(line)[7])
-            c  = parse(Float64,split(line)[8])
-            b1 = parse(Float64,split(line)[9])
-            b2 = parse(Float64,split(line)[10])
-            b3 = parse(Float64,split(line)[11])
-            b4 = parse(Float64,split(line)[12])
+            a1 = parse(Float32,split(line)[4])
+            a2 = parse(Float32,split(line)[5])
+            a3 = parse(Float32,split(line)[6])
+            a4 = parse(Float32,split(line)[7])
+            c  = parse(Float32,split(line)[8])
+            b1 = parse(Float32,split(line)[9])
+            b2 = parse(Float32,split(line)[10])
+            b3 = parse(Float32,split(line)[11])
+            b4 = parse(Float32,split(line)[12])
             elementInfo = Element(symbol, atomicNumber, a1, a2, a3, a4,
                                   b1, b2, b3, b4, c, atmScatFacDict)
             elementDictionary[symbol] = elementInfo

@@ -34,7 +34,7 @@ const numMtzColsFor1stRefLine = UInt8(9) #Number of columns in 1st MTZ Dump line
 const numMtzColsFor2ndand3rdRefLines = UInt8(4) #Number of columns in 2nd/3rd MTZ Dump line for reflection information
 const numMtzColsIntLineCTruncate = UInt8(6)
 const estimateTotalIntensityFromPartialRef = true #Estimate the total intensity from partial information.
-const additionalElements = ""
+const additionalElements = "S 2"
 
 const imageOscillation = Float32(1.0) #degrees of oscillation for each image.
 
@@ -142,12 +142,12 @@ inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFac
 # getInitialAmplitudes!(hklList, atomDict, scatteringAngles, elementDict, tempFacDict)
 
 # Get initial amplitudes by method 2
-getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
+#getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
 
 # Get initial amplitudes by method 3
-# mtzDumpOutput = runMtzdump(sfFileLocation, 1200)
-# refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
-# getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
+mtzDumpOutput = runMtzdump(sfFileLocation, Int32(1200))
+refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
+getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
 
 #End Section: Extract initial guess structure factor amplitudes
 ################################################################################

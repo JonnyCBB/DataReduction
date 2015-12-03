@@ -218,14 +218,14 @@ function sortHKLIntoResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vect
         refCounter = 1
         for key in keys(reflectionList)
             reflection = reflectionList[key]
-            if reflection.hkl == [Int16(0),Int16(0),Int16(0)] && resbin.minRes == Inf32
+            if resbin.minRes > reflection.resolution ≥ resbin.maxRes || reflection.resolution == minRes
                 resbin.hkls[refCounter] = reflection.hkl
                 if refCounter == resbin.numOfRef
                     break
                 else
                     refCounter += 1
                 end
-            elseif resbin.minRes > reflection.resolution ≥ resbin.maxRes || reflection.resolution == minRes
+            elseif reflection.hkl == [Int16(0),Int16(0),Int16(0)] && resbin.minRes == Inf32
                 resbin.hkls[refCounter] = reflection.hkl
                 if refCounter == resbin.numOfRef
                     break
@@ -313,7 +313,7 @@ function calcBandScaleParams(hklList::Dict{Vector{Int16},Reflection}, imageArray
     scaleFactors = Vector{Float32}()
     scaleFactorSigmas = Vector{Float32}()
     imageNumArray = Vector{Int16}()
-    imageNum = 0
+    imageNum::UInt16 = 0
     #loop through image array
     for img in imageArray
         imageNum += 1 # increment image number
@@ -328,8 +328,8 @@ function calcBandScaleParams(hklList::Dict{Vector{Int16},Reflection}, imageArray
         hSqrd = Vector{Float64}()
         #now loop through each resolution bin
         for resbin in resbins
-            summedIntensity = 0.0
-            numRefs = 0
+            summedIntensity::Float64 = 0.0
+            numRefs::UInt16 = 0
             #loop through all resolutions in the list of observations
             for resolution in keys(intensityDict)
                 if resbin.minRes > resolution >= resbin.maxRes
@@ -340,8 +340,8 @@ function calcBandScaleParams(hklList::Dict{Vector{Int16},Reflection}, imageArray
             meanIntensity = summedIntensity/numRefs # calculate mean intensity for the resolution bin
             if !isnan(meanIntensity) && meanIntensity > 0.0
                 push!(logIntensityRatio, log(meanIntensity/resbin.meanIntensity))
-                midres = (resbin.maxRes + resbin.minRes)/2
-                push!(hSqrd, 1/midres^2)
+                midres = (resbin.maxRes + resbin.minRes)/2.0
+                push!(hSqrd, 1.0/midres^2)
             end
         end
         #Check that there were enough data points for the image
@@ -349,8 +349,8 @@ function calcBandScaleParams(hklList::Dict{Vector{Int16},Reflection}, imageArray
             model(x, p) = p[1] + p[2] * x #create linear function model
             fit = curve_fit(model, hSqrd, logIntensityRatio, [0.0, 0.0]) #fit straight line to the data
             paramSigmas = sqrt(diag(estimate_covar(fit))) # return the sigma values for the fitted values
-            push!(bfactors, -2*fit.param[2])
-            push!(bfactorSigmas, 2*paramSigmas[2])
+            push!(bfactors, -2.0*fit.param[2])
+            push!(bfactorSigmas, 2.0*paramSigmas[2])
             push!(scaleFactorSigmas, abs(exp(paramSigmas[1])))
             push!(scaleFactors, exp(fit.param[1]))
             push!(imageNumArray, imageNum)
@@ -385,7 +385,7 @@ function calcBandScaleParams(hklList::Dict{Vector{Int16},Reflection}, imageArray
     outlierThresholdValue = kdeScaleFacsFull.x[findfirst(cumProbScaleFull .> keepPercentageScaleData, true)]
 
     #Find indices where outliars appear in both the bfactor and scale factor arrays
-    indicesOfOutliers = Vector{Int16}()
+    indicesOfOutliers = Vector{UInt16}()
     for i in 1:length(bfactors)
         if abs(zScoresB[i]) > 2 || scaleFactors[i] > outlierThresholdValue
             push!(indicesOfOutliers, i)
