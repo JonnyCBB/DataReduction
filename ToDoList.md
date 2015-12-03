@@ -17,12 +17,13 @@ Not sure of any more yet.
 ### Things that have to be done at some point.
 
 - I need to sort out the implementation of the Rician distribution for the structure factor amplitudes. The bessel function throws an error (Base.Math.AmosExecption(2) at special/bessel.jl:142) with some of the numbers that are used. I don't know what it is but it seems to be a problem when the Gaussian mean is much larger than the standard deviation. Maybe check it against another programming language to see what the problem might be.
+-   Need to allow for user to input TOTAL number of additional cofactor/ligand atoms.
 -	Check to make sure the reflection multiplicity (epsilon factor) is correct
 -	Sort out expected intensities when sequence files aren't given.
 -	Sort out the atomic composition when NCS is present.
 -	Outlier rejection
 -	Sort out error messages so they use '@sprintf' macros. At the moment they wont give the correct strings in general
--   Sort out image rejection
+-   Sort out image rejection (for both B and scale factor calculations and for user)
 -   Properly comment the code.
 -   Actually output log information to the console so that the user knows what's going on.
 - Sort out rounding of values when sorting out the image numbers during the MTZ file parsing. I've left a "*****" comment where this needs to be sorted.
