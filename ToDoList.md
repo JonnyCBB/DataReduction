@@ -26,7 +26,7 @@ Not sure of any more yet.
 -   Sort out image rejection (for both B and scale factor calculations and for user)
 -   Properly comment the code.
 -   Actually output log information to the console so that the user knows what's going on.
-- Sort out rounding of values when sorting out the image numbers during the MTZ file parsing. I've left a "*****" comment where this needs to be sorted.
+- Sort out rounding of values when sorting out the image numbers during the MTZ file parsing. I've left a "*****" comment where this needs to be sorted. THIS IS A BIG PROBLEM AND WILL LIKELY LEAD TO ERRORS FOR THE FIRST PROPER RUN. I also need to write an error statement that will catch this later on so we get an informative message about it.
 
 ### Things that could be done at some point
 
