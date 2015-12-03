@@ -4,17 +4,17 @@
 
 type Element
     symbol::ASCIIString
-    atomicNumber::Int64
-    cm_a1::Float64
-    cm_a2::Float64
-    cm_a3::Float64
-    cm_a4::Float64
-    cm_b1::Float64
-    cm_b2::Float64
-    cm_b3::Float64
-    cm_b4::Float64
-    cm_c ::Float64
-    f0::Dict{Float64,Float64}
+    atomicNumber::UInt8
+    cm_a1::Float32
+    cm_a2::Float32
+    cm_a3::Float32
+    cm_a4::Float32
+    cm_b1::Float32
+    cm_b2::Float32
+    cm_b3::Float32
+    cm_b4::Float32
+    cm_c ::Float32
+    f0::Dict{Float32,Float32}
 end
 
 #############################################################
@@ -48,7 +48,7 @@ function createElementDictionary()
 end
 
 
-function calcElementf0!(elementDict::Dict{ASCIIString,Element}, angles::Vector{Float64}, wavelength::Float64)
+function calcElementf0!(elementDict::Dict{ASCIIString,Element}, angles::Vector{Float32}, wavelength::Float32)
     k_sqrd = (sin(deg2rad(angles))/wavelength).^2
     for key in keys(elementDict)
         element = deepcopy(elementDict[key])

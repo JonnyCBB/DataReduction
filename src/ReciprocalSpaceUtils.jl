@@ -1,5 +1,5 @@
 
-immutable Unitcell{T<:Float64}
+immutable Unitcell{T<:Float32}
     a::T
     b::T
     c::T
@@ -9,43 +9,44 @@ immutable Unitcell{T<:Float64}
 end
 
 type ReflectionObservation
-    rotCentroid::Float64
-    fractionCalc::Float64
-    misym::Int64
-    intensity::Float64
-    sigI::Float64
+    rotCentroid::Float32
+    fractionCalc::Float32
+    misym::UInt16
+    intensity::Float32
+    sigI::Float32
     imageNums::Vector{UInt16}
-    imageIntensities::Vector{Float64}
+    imageIntensities::Vector{Float32}
 end
 
 type DiffractionImage
     rotAngleStart::Float32
     rotAngleStop::Float32
-    observationList::Dict{Vector{Int64}, ReflectionObservation}
+    observationList::Dict{Vector{Int16}, ReflectionObservation}
 end
-DiffractionImage(startAng::Float64, stopAng::Float64) = DiffractionImage(startAng,
-stopAng, Dict{Vector{Int64}, ReflectionObservation}())
+DiffractionImage(startAng::Float32, stopAng::Float32) = DiffractionImage(startAng,
+stopAng, Dict{Vector{Int16}, ReflectionObservation}())
 
 immutable SpaceGroup
     symbol::ASCIIString
     number::UInt8
     numSymOps::UInt8
-    symOps::Vector{Matrix{Float64}}
+    symOps::Vector{Matrix{Float32}}
 end
 
 type Reflection
-    hkl::Vector{Int64}
-    symEquivHKL::Vector{Int64}
-    resolution::Float64
-    scatteringAngle::Float64
+    hkl::Vector{Int16}
+    symEquivHKL::Vector{Int16}
+    resolution::Float32
+    scatteringAngle::Float32
     epsilon::UInt8
     isCentric::Bool
     isSysAbs::Bool
-    amplitude::Float64
+    amplitude::Float32
+    amplitudeSig::Float32
     observations::Vector{ReflectionObservation}
 
-    function Reflection(hkl::Vector{Int64}, symEquivHKL::Vector{Int64},
-                        spacegroup::SpaceGroup, unitcell::Unitcell, xrayWavelength::Float64)
+    function Reflection(hkl::Vector{Int16}, symEquivHKL::Vector{Int16},
+                        spacegroup::SpaceGroup, unitcell::Unitcell, xrayWavelength::Float32)
         reflection = new()
         reflection.hkl = hkl
         reflection.symEquivHKL = symEquivHKL
@@ -55,19 +56,20 @@ type Reflection
         xrayWavelength)
         determineHKLClass!(reflection, spacegroup, unitcell)
         reflection.amplitude = 0.0
+        reflection.amplitudeSig = 0.0
         reflection.observations = Vector{ReflectionObservation}()
         return reflection
     end
 end
 
 type ResBin
-    minRes::Float64
-    maxRes::Float64
-    numOfRef::Int64
-    meanIntensity::Float64
-    hkls::Array{Vector{Int64},1}
+    minRes::Float32
+    maxRes::Float32
+    numOfRef::UInt16
+    meanIntensity::Float32
+    hkls::Array{Vector{Int16},1}
 end
-ResBin(minRes::Float64, maxRes::Float64, numOfRef::Int64) = ResBin(minRes, maxRes, numOfRef, 0.0, Array(Vector{Int64},1))
+ResBin(minRes::Float32, maxRes::Float32, numOfRef::UInt16) = ResBin(minRes, maxRes, numOfRef, Float32(0.0), Array(Vector{Int16},1))
 
 
 function convertDirectToReciprocal(directUnitCell::Unitcell)
@@ -94,7 +96,7 @@ function convertDirectToReciprocal(directUnitCell::Unitcell)
     return reciprocalUnitcell
 end
 
-function calcResolution(reciprocalUnitcell::Unitcell, millerIndices::Vector{Int64})
+function calcResolution(reciprocalUnitcell::Unitcell, millerIndices::Vector{Int16})
     h = millerIndices[1]
     k = millerIndices[2]
     l = millerIndices[3]
@@ -114,9 +116,9 @@ function calcResolution(reciprocalUnitcell::Unitcell, millerIndices::Vector{Int6
     return resolution
 end
 
-function calcScatteringAngle(resolution::Float64, xrayWavelength::Float64)
+function calcScatteringAngle(resolution::Float32, xrayWavelength::Float32)
     if isinf(resolution)
-        return 0
+        return 0.0
     else
         d = resolution
         λ = xrayWavelength
@@ -125,8 +127,8 @@ function calcScatteringAngle(resolution::Float64, xrayWavelength::Float64)
     end
 end
 
-function getAllScatteringAngles(reflectionList::Dict{Vector{Int64},Reflection})
-    scatteringAngles = Array(Float64,length(reflectionList))
+function getAllScatteringAngles(reflectionList::Dict{Vector{Int16},Reflection})
+    scatteringAngles = Array(Float32,length(reflectionList))
     counter = 1
     for key in keys(reflectionList)
         scatteringAngles[counter] = reflectionList[key].scatteringAngle
@@ -156,7 +158,7 @@ function determineHKLClass!(reflection::Reflection, spacegroup::SpaceGroup, unit
     end
 end
 
-function applySymOpTrans(transformation::Array{Float64,2}, point::Vector{Int64}, unitcell::Unitcell)
+function applySymOpTrans(transformation::Array{Float32,2}, point::Vector{Int16}, unitcell::Unitcell)
     transformationMatrix = transformation[1:3,1:3]
     translation = transformation[1:3,4]
     if sort(translation)[end] > 1.0
@@ -164,13 +166,12 @@ function applySymOpTrans(transformation::Array{Float64,2}, point::Vector{Int64},
     else
         relativeTranslation = translation
     end
-    pointTransformation = transformationMatrix * point
-    pointTransformation = convert(Array{Int64,1},round(pointTransformation))
+    pointTransformation = map(x -> Int16(x), transformationMatrix * point)
     phaseShift = 2π*dot(relativeTranslation, point)
     return pointTransformation, phaseShift
 end
 
-function removeSysAbs!(reflectionList::Dict{Vector{Int64},Reflection})
+function removeSysAbs!(reflectionList::Dict{Vector{Int16},Reflection})
     for key in keys(reflectionList)
         if reflectionList[key].isSysAbs
             delete!(reflectionList, key)
@@ -178,11 +179,11 @@ function removeSysAbs!(reflectionList::Dict{Vector{Int64},Reflection})
     end
 end
 
-function sortResolutionBins(reflectionList::Dict{Vector{Int64},Reflection}, minRefPerBin::Int64)
+function sortResolutionBins(reflectionList::Dict{Vector{Int16},Reflection}, minRefPerBin::UInt16)
     resbins = ResBin[]
     counter = 1
     numOfRef = length(reflectionList)
-    resolutionArray = Array(Float64,numOfRef)
+    resolutionArray = Array(Float32,numOfRef)
 
     #First we need to sort the resolution values into increasing resolution order
     #(i.e. from biggest resolution number to smallest)
@@ -199,7 +200,7 @@ function sortResolutionBins(reflectionList::Dict{Vector{Int64},Reflection}, minR
     for i = 1:numOfRef
         if numOfRefInResBinCounter >= minRefPerBin && resolutionArray[i] != previousRes
             maxRes = previousRes
-            resbin = ResBin(minRes, maxRes, numOfRefInResBinCounter)
+            resbin = ResBin(minRes, maxRes, UInt16(numOfRefInResBinCounter))
             push!(resbins, resbin)
             minRes = previousRes
             numOfRefInResBinCounter = 0
@@ -210,14 +211,14 @@ function sortResolutionBins(reflectionList::Dict{Vector{Int64},Reflection}, minR
     return resbins
 end
 
-function sortHKLIntoResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vector{Int64},Reflection})
+function sortHKLIntoResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vector{Int16},Reflection})
     minRes = resbins[1].minRes
     for resbin in resbins
-        resbin.hkls = Array(Vector{Int64}, resbin.numOfRef)
+        resbin.hkls = Array(Vector{Int16}, resbin.numOfRef)
         refCounter = 1
         for key in keys(reflectionList)
             reflection = reflectionList[key]
-            if reflection.hkl == [0,0,0] && resbin.minRes == Inf
+            if reflection.hkl == [Int16(0),Int16(0),Int16(0)] && resbin.minRes == Inf32
                 resbin.hkls[refCounter] = reflection.hkl
                 if refCounter == resbin.numOfRef
                     break
@@ -236,7 +237,7 @@ function sortHKLIntoResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vect
     end
 end
 
-function calcResbinMeanIntensity!(resbins::Vector{ResBin}, f0SqrdDict::Dict{Float64, Float64}, hklList::Dict{Vector{Int64}, Reflection})
+function calcResbinMeanIntensity!(resbins::Vector{ResBin}, f0SqrdDict::Dict{Float32, Float32}, hklList::Dict{Vector{Int16}, Reflection})
     for resbin in resbins
         summedIntensity = 0.0
         for hkl in resbin.hkls
@@ -249,7 +250,7 @@ end
 ################################################################################
 #NEED TO COME BACK TO THIS LATER
 ################################################################################
-function assignMeanIntensityToResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vector{Int64},Reflection}, f0SqrdDict::Dict{Float64, Float64})
+function assignMeanIntensityToResBins!(resbins::Array{ResBin,1}, reflectionList::Dict{Vector{Int16},Reflection}, f0SqrdDict::Dict{Float32, Float32})
     binCounter = 1
     for resbin in resbins
         intensityArray = Array(Float64,resbin.numOfRef,1)
@@ -306,17 +307,17 @@ function assignMeanIntensityToResBins!(resbins::Array{ResBin,1}, reflectionList:
     end
 end
 
-function calcBandScaleParams(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector{DiffractionImage}, resbins::Vector{ResBin}, outputImageDir::ASCIIString="", displayPlots::Bool=false)
-    bfactors = Vector{Float64}()
-    bfactorSigmas = Vector{Float64}()
-    scaleFactors = Vector{Float64}()
-    scaleFactorSigmas = Vector{Float64}()
-    imageNumArray = Vector{Int64}()
+function calcBandScaleParams(hklList::Dict{Vector{Int16},Reflection}, imageArray::Vector{DiffractionImage}, resbins::Vector{ResBin}, outputImageDir::ASCIIString="", displayPlots::Bool=false)
+    bfactors = Vector{Float32}()
+    bfactorSigmas = Vector{Float32}()
+    scaleFactors = Vector{Float32}()
+    scaleFactorSigmas = Vector{Float32}()
+    imageNumArray = Vector{Int16}()
     imageNum = 0
     #loop through image array
     for img in imageArray
         imageNum += 1 # increment image number
-        intensityDict = Dict{Float64,Float64}() #create intensity dict Dict{resolution, intensity/epsilon}
+        intensityDict = Dict{Float32,Float32}() #create intensity dict Dict{resolution, intensity/epsilon}
         #loop through all observations on the image
         for hkl in keys(img.observationList)
             reflection = hklList[hkl] # get reflection
@@ -384,7 +385,7 @@ function calcBandScaleParams(hklList::Dict{Vector{Int64},Reflection}, imageArray
     outlierThresholdValue = kdeScaleFacsFull.x[findfirst(cumProbScaleFull .> keepPercentageScaleData, true)]
 
     #Find indices where outliars appear in both the bfactor and scale factor arrays
-    indicesOfOutliers = Vector{Int64}()
+    indicesOfOutliers = Vector{Int16}()
     for i in 1:length(bfactors)
         if abs(zScoresB[i]) > 2 || scaleFactors[i] > outlierThresholdValue
             push!(indicesOfOutliers, i)
@@ -444,16 +445,16 @@ function calcBandScaleParams(hklList::Dict{Vector{Int64},Reflection}, imageArray
     #Fit a linear model to both the B factor values
     modelB(x,parameters) = parameters[2] + parameters[1]*x
     bFacFit = curve_fit(modelB, imageNumArray, bfactors, [0.0, mean(bfactors)])
-    bfacGrad = bFacFit.param[1]
+    bfacGrad::Float32 = bFacFit.param[1]
     bParamSigmas = sqrt(diag(estimate_covar(bFacFit)))
-    bGradSigma, bInterceptSigma = bParamSigmas[1], bParamSigmas[2]
-    bIntercept = bFacFit.param[2]
+    bGradSigma::Float32, bInterceptSigma::Float32 = bParamSigmas[1], bParamSigmas[2]
+    bIntercept::Float32 = bFacFit.param[2]
 
     #Use kernel density estimation to generate the distribution of scale factors
     kdeScaleFacs = kde(scaleFactors, 0:kdeStep:maximum(scaleFactors))
-    modalScale = kdeScaleFacsFull.x[findlast(kdeScaleFacs.density, maximum(kdeScaleFacs.density))]
-    meanScale = mean(scaleFactors)
-    sigmaScale = std(scaleFactors)
+    modalScale::Float32 = kdeScaleFacsFull.x[findlast(kdeScaleFacs.density, maximum(kdeScaleFacs.density))]
+    meanScale::Float32 = mean(scaleFactors)
+    sigmaScale::Float32 = std(scaleFactors)
 
     ########################################################################################
     #Plot the results
@@ -553,9 +554,9 @@ end
 ################################################################################
 #Add method information
 ################################################################################
-function calcTempAndSFMultFactorDict(scatteringAngles::Vector{Float64}, bFactor::Float64, bFacChange::Float64, wavelength::Float64)
-    tempFacDict = Dict{Float64, Float64}()
-    SFMultiplierDict = Dict{Float64, Float64}()
+function calcTempAndSFMultFactorDict(scatteringAngles::Vector{Float32}, bFactor::Float32, bFacChange::Float32, wavelength::Float32)
+    tempFacDict = Dict{Float32, Float32}()
+    SFMultiplierDict = Dict{Float32, Float32}()
     for scatAngle in scatteringAngles
         B = bFactor
         θ = deg2rad(scatAngle)
@@ -570,4 +571,4 @@ end
 ################################################################################
 #Add method information
 ################################################################################
-calcD(ΔB::Float64, θ::Float64, λ::Float64) = exp(-2 * ΔB * (sin(deg2rad(θ))^2) / λ^2)
+calcD(ΔB::Float32, θ::Float32, λ::Float32) = exp(-2 * ΔB * (sin(deg2rad(θ))^2) / λ^2)

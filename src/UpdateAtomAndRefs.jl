@@ -1,7 +1,7 @@
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function updateAtomDict!(atomDict::Dict{ASCIIString, Int64}, spacegroup::SpaceGroup)
+function updateAtomDict!(atomDict::Dict{ASCIIString, UInt32}, spacegroup::SpaceGroup)
     for element in keys(atomDict)
         atomDict[element] *= spacegroup.numSymOps
     end
@@ -10,10 +10,10 @@ end
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function calcTotalf0Sqrd(atomDict::Dict{ASCIIString, Int64}, scatteringAngles::Vector{Float64}, elementDict::Dict{ASCIIString, Element})
-    f0SqrdDict = Dict{Float64, Float64}()
+function calcTotalf0Sqrd(atomDict::Dict{ASCIIString, UInt32}, scatteringAngles::Vector{Float32}, elementDict::Dict{ASCIIString, Element})
+    f0SqrdDict = Dict{Float32, Float32}()
     for scatAngle in scatteringAngles
-        f0::Float64 = 0.0
+        f0::Float32 = 0.0
         for atom in keys(atomDict)
             f0 += elementDict[atom].f0[scatAngle]^2 * atomDict[atom]
         end
@@ -25,7 +25,7 @@ end
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function updateRefListAndImageArray!(hklList::Dict{Vector{Int64},Reflection}, imageArray::Vector{DiffractionImage}, estimatePartialIntensity::Bool=true)
+function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, imageArray::Vector{DiffractionImage}, estimatePartialIntensity::Bool=true)
     for hkl in keys(hklList)
         reflection = hklList[hkl]
         numOfExistingObs = length(reflection.observations)
@@ -185,14 +185,14 @@ end
 #intensity.
 #(2) If we combine partials we have to account for the fact that they were
 #observed at different times i.e. on different images.
-function inflateObservedSigmas!(imageArray::Vector{DiffractionImage}, hklList::Dict{Vector{Int64},Reflection}, ΔB::Float64, minFracCalc::Float64=0.99, applyBFacTof0::Bool=true)
+function inflateObservedSigmas!(imageArray::Vector{DiffractionImage}, hklList::Dict{Vector{Int16},Reflection}, ΔB::Float32, minFracCalc::Float32=Float32(0.99), applyBFacTof0::Bool=true)
     rotStart = imageArray[1].rotAngleStart
     rotEnd = imageArray[end].rotAngleStop
     ϕ = imageArray[1].rotAngleStop - rotStart
     for diffractionImage in imageArray
         #Loop through each observation
         for hkl in keys(diffractionImage.observationList)
-            centroidImageDiffErrFactor = 0.0
+            centroidImageDiffErrFactor::Float32 = 0.0
             reflection = hklList[hkl]
             refObservation = diffractionImage.observationList[hkl] # get the observation object
             imageNumAndInts = hcat(refObservation.imageNums, refObservation.imageIntensities)
@@ -260,7 +260,7 @@ function inflateObservedSigmas!(imageArray::Vector{DiffractionImage}, hklList::D
             #In this section we consider our uncertainty of the intensity due to the
             #fact that the integration program tells us that the fraction of the
             #reflection calculated is less than 1.
-            fracCalcErrFactor = 0.0
+            fracCalcErrFactor::Float32 = 0.0
             if refObservation.fractionCalc < minFracCalc
                 fracCalcErrFactor = 1.0 - refObservation.fractionCalc
             end
@@ -294,12 +294,12 @@ end
 #longer to compute than method 2 and I'm not sure that the estimates are better.
 #It adds the atomic scattering factors together and then multilplies by the
 #temperature factor.
-function getInitialAmplitudes!(hklList::Dict{Vector{Int64}, Reflection}, atomDict::Dict{ASCIIString, Int64}, scatteringAngles::Vector{Float64}, elementDict::Dict{ASCIIString, Element}, tempFacDict::Dict{Float64, Float64})
+function getInitialAmplitudes!(hklList::Dict{Vector{Int16}, Reflection}, atomDict::Dict{ASCIIString, UInt32}, scatteringAngles::Vector{Float32}, elementDict::Dict{ASCIIString, Element}, tempFacDict::Dict{Float32, Float32})
     #First thing: calculate the initial amplitudes corrected by the initial
     #temperature factor.
     initialAmplitudeDict = Dict{Float64, Float64}()
     for scatAngle in scatteringAngles
-        f0::Float64 = 0.0
+        f0::Float32 = 0.0
         for atom in keys(atomDict)
             f0 += elementDict[atom].f0[scatAngle] * atomDict[atom]
         end
@@ -325,7 +325,7 @@ end
 #assigns the initial amplitude according to the scattering angle of the
 #reflection. It is calculated as the square root of the squared amplitudes
 #multiplied by the temperature factor.
-function getInitialAmplitudes!(hklList::Dict{Vector{Int64}, Reflection}, f0SqrdDict::Dict{Float64, Float64}, tempFacDict::Dict{Float64, Float64})
+function getInitialAmplitudes!(hklList::Dict{Vector{Int16}, Reflection}, f0SqrdDict::Dict{Float32, Float32}, tempFacDict::Dict{Float32, Float32})
     for hkl in keys(hklList)
         reflection = hklList[hkl]
         reflection.amplitude = sqrt(f0SqrdDict[reflection.scatteringAngle]) * tempFacDict[reflection.scatteringAngle]
@@ -344,9 +344,9 @@ end
 #we just use the square root of the observed intensity on the image.
 #Otherwise if the intensity is negative then I just set the amplitude
 #value to zero.
-function getInitialAmplitudes!(hklList::Dict{Vector{Int64}, Reflection}, refAmpDict::Dict{Vector{Int64}, Float64}, scaleFac::Float64)
+function getInitialAmplitudes!(hklList::Dict{Vector{Int16}, Reflection}, refAmpDict::Dict{Vector{Int16}, Float32}, scaleFac::Float32)
     for hkl in keys(hklList)
-        maxIntensity = -1000
+        maxIntensity::Float32 = -1000.0
         reflection = hklList[hkl]
         if haskey(refAmpDict, reflection.symEquivHKL)
             reflection.amplitude = refAmpDict[reflection.symEquivHKL] / scaleFac

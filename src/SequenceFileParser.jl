@@ -4,14 +4,14 @@
 
 immutable Residue
     identifier::ASCIIString
-    carbons::Int64
-    hydrogens::Int64
-    nitrogens::Int64
-    oxygens::Int64
-    sulphurs::Int64
-    phosphoruses::Int64
-    seleniums::Int64
-    molecularWeight::Float64
+    carbons::UInt32
+    hydrogens::UInt32
+    nitrogens::UInt32
+    oxygens::UInt32
+    sulphurs::UInt32
+    phosphoruses::UInt32
+    seleniums::UInt32
+    molecularWeight::Float32
 end
 
 type ResidueType
@@ -703,7 +703,7 @@ end
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
-function getAtomOccurence!(atomOccurenceDict::Dict{ASCIIString, Int64}, residueID::Char, residueType::ResidueType,
+function getAtomOccurence!(atomOccurenceDict::Dict{ASCIIString, UInt32}, residueID::Char, residueType::ResidueType,
     residues::Dict{ASCIIString, Residue})
     threeLetterID = resIDLetterConversion(residueID, residueType)
     residue = residues[threeLetterID]
@@ -726,7 +726,7 @@ function parseCommentLine!(residueType::ResidueType, line::ASCIIString)
     end
 end
 
-function parseSequenceLine!(atomOccurenceDict::Dict{ASCIIString, Int64}, residueType::ResidueType, line::ASCIIString,
+function parseSequenceLine!(atomOccurenceDict::Dict{ASCIIString, UInt32}, residueType::ResidueType, line::ASCIIString,
     residues::Dict{ASCIIString, Residue})
     for character in line
         if character != '\n'
@@ -735,7 +735,7 @@ function parseSequenceLine!(atomOccurenceDict::Dict{ASCIIString, Int64}, residue
     end
 end
 
-function parseSeqFileLine!(atomOccurenceDict::Dict{ASCIIString, Int64}, residueType::ResidueType, line::ASCIIString,
+function parseSeqFileLine!(atomOccurenceDict::Dict{ASCIIString, UInt32}, residueType::ResidueType, line::ASCIIString,
     residues::Dict{ASCIIString, Residue})
     if !isempty(strip(line))
         firstCharacter = line[1]
@@ -748,7 +748,7 @@ function parseSeqFileLine!(atomOccurenceDict::Dict{ASCIIString, Int64}, residueT
 end
 
 function getAtomicCompositon(sequenceFileLocation::ASCIIString, useSeqFile::Bool=true)
-    atomOccurenceDict = Dict{ASCIIString, Int64}()
+    atomOccurenceDict = Dict{ASCIIString, UInt32}()
     residueType = ResidueType("AminoAcid")
     residues = createResidueDict()
     if isfile(sequenceFileLocation) || useSeqFile
@@ -770,7 +770,7 @@ function getAtomicCompositon(sequenceFileLocation::ASCIIString, useSeqFile::Bool
     return atomOccurenceDict
 end
 
-function additionalElements!(atomDict::Dict{ASCIIString, Int64}, additionalElements::ASCIIString)
+function additionalElements!(atomDict::Dict{ASCIIString, UInt32}, additionalElements::ASCIIString)
     composition = split(additionalElements)
     if iseven(length(composition))
         for inputs = 1:2:length(composition)

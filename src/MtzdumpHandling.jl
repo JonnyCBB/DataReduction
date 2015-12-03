@@ -2,7 +2,7 @@
 ########################## Types Declarations ###########################
 immutable MtzdumpParams
     inputFilename::ASCIIString
-    nref::Int64
+    nref::Int32
 end
 
 #########################################################################
@@ -36,7 +36,7 @@ Now we use the function runMtzdump on an MTZ file with the name "MyMTZFile.mtz"
 
 `mtzOutput` is now an ASCIIString type object containing the output from the MTZDump run.
 """
-function runMtzdump(mtzFile::ASCIIString, numRef::Int64=20)
+function runMtzdump(mtzFile::ASCIIString, numRef::Int32=20)
     inputParams = MtzdumpParams("mtzdumpinputs.txt", numRef) #Create MtzdumpParams object
     mtzdumpInputFile = open(inputParams.inputFilename,"w") #Create text file for writing
     write(mtzdumpInputFile, @sprintf("nref %d\r\n", inputParams.nref)) # write number of reflections line
@@ -69,7 +69,7 @@ end
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function combineObsIntensity(Ipr::Float64, Isum::Float64, LP::Float64)
+function combineObsIntensity(Ipr::Float32, Isum::Float32, LP::Float32)
     if abs(Ipr + Isum) < 0.001
         return Ipr
     else
@@ -90,35 +90,35 @@ end
 #functions it turns out that they pretty much overlap so they're pretty much
 #equivalent for argument values between 0 - 1
 p(q) = 3q^2 - 2q^3
-function volumeRatio(penetrationDepth::Float64, sphereDiameter::Float64)
+function volumeRatio(penetrationDepth::Float32, sphereDiameter::Float32)
     d = sphereDiameter
     h = penetrationDepth
     ratio = 8 * h^2 * ((3/2)*d - h)/(4 * d^3)
     return ratio
 end
-volumeRatio(penetrationFraction::Float64) = volumeRatio(penetrationFraction, 1.0)
+volumeRatio(penetrationFraction::Float32) = volumeRatio(penetrationFraction, Float32(1.0))
 
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=0.0, rotDiffTol::Float64=0.1)
+function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=Float32(0.0), rotDiffTol::Float32=Float32(0.1))
     ################################################################################
     #Parameter types can be annotated if necessary to save memory if that
     #becomes an issue.
     ################################################################################
-    hklList = Dict{Vector{Int64},Reflection}()
+    hklList = Dict{Vector{Int16},Reflection}()
 
     batchNumber = 0
     numberOfImages = 0
     actualImageOsc = 0.0
     rotStart = 0.0
     rotFinish = 0.0
-    numSymOps = 0
+    numSymOps = UInt8(0)
     spaceGroupNumber = 0
     spaceGroupSymbol = ""
-    symmetryOps = Array(Matrix{Float16})
+    symmetryOps = Array(Matrix{Float32})
     symOpsLines = false
-    symOpMatrix = [0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.0]
+    symOpMatrix = Array(Float32,4,4)
     symOpMatrixRow = 1
     symOpNumber = 0
     searchCellDims = false
@@ -138,7 +138,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
     colNumLP = 0
     refLine = 0
     hkl = [0, 0, 0]
-    origHKL = [0, 0, 0]
+    origHKL = Vector{Int16}(3)
     imageNumber = 0
     misymNum = 0
     Isum, sigIsum = 0.0, 0.0
@@ -158,7 +158,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
         #the space group. This allows us to use that number to preallocate an array
         #of the right size for all of the symmetry operators
         if contains(line, "Number of Symmetry Operations")
-            numSymOps = parse(Int, split(line)[7])
+            numSymOps = UInt8(parse(Int, split(line)[7]))
             symmetryOps = Array(Matrix{Float16}, numSymOps)
         end
         #End of Section: Parse number of symmetry Operations
@@ -173,7 +173,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
         #and symbol from the corresponding lines in the MTZ dump output.
         if contains(line, "Space Group")
             spaceGroupLine = split(line)
-            spaceGroupNumber = parse(Int, spaceGroupLine[5])
+            spaceGroupNumber = UInt8(parse(Int, spaceGroupLine[5]))
             spaceGroupSymbol = spaceGroupLine[6][2:end-1]
         end
 
@@ -185,8 +185,8 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
             symOpNumber = parse(Int, split(line)[2])
         elseif symOpsLines == true
             matrixRowValues = split(line)
-            symOpMatrix[symOpMatrixRow,:] = [parse(Float64,matrixRowValues[1]), parse(Float64,matrixRowValues[2]),
-                                             parse(Float64,matrixRowValues[3]), parse(Float64,matrixRowValues[4])]
+            symOpMatrix[symOpMatrixRow,:] = [parse(Float32,matrixRowValues[1]), parse(Float32,matrixRowValues[2]),
+                                            parse(Float32,matrixRowValues[3]), parse(Float32,matrixRowValues[4])]
             if symOpMatrixRow == 4
                 symmetryOps[symOpNumber] = symOpMatrix
                 symOpsLines = false
@@ -221,9 +221,9 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
         #Finally we create the Unitcell object
         if search(line, r"[0-9][0-9].[0-9][0-9][0-9][0-9]") != 0:-1 && searchCellDims == true
             unitcellDims = split(line)
-            global unitcell = Unitcell(parse(Float64,unitcellDims[1]), parse(Float64,unitcellDims[2]),
-            parse(Float64,unitcellDims[3]), parse(Float64,unitcellDims[4]),
-            parse(Float64,unitcellDims[5]), parse(Float64,unitcellDims[6]))
+            global unitcell = Unitcell(parse(Float32,unitcellDims[1]), parse(Float32,unitcellDims[2]),
+            parse(Float32,unitcellDims[3]), parse(Float32,unitcellDims[4]),
+            parse(Float32,unitcellDims[5]), parse(Float32,unitcellDims[6]))
             searchCellDims = false
         end
         #End of Section: Parse Unit Cell
@@ -348,7 +348,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
             if isnumber(nonEmptyLine[1]) # Check the first non-whitespace string can be parsed as numeric (this only works for integers)
                 if length(nonEmptyLine) == numMtzColsFor1stRefLine #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
                     refLine = 1
-                    hkl = [parse(Int,nonEmptyLine[colNumH]), parse(Int,nonEmptyLine[colNumK]), parse(Int,nonEmptyLine[colNumL])]
+                    hkl = [parse(Int16,nonEmptyLine[colNumH]), parse(Int16,nonEmptyLine[colNumK]), parse(Int16,nonEmptyLine[colNumL])]
                     misymNum = parse(Float64, nonEmptyLine[colNumMIsym])
                     if separateSymEquivs #Check if we want to keep symmetry equivalents separate.
                         ############################################################
@@ -368,7 +368,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
                             Iplus = true
                         end
                         symopNum = round(Int, isym/2)
-                        origHKL = round(Int,symmetryOps[symopNum][1:3,1:3] * hkl)
+                        origHKL = map(x -> Int16(x),symmetryOps[symopNum][1:3,1:3] * hkl)
                         if !Iplus
                             origHKL = -origHKL
                         end
@@ -393,9 +393,9 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
                     #It would be more general if it was possible to determine
                     #the precision from the user defined input.
                     ############################################################
-                    imageNumber = Int(ceil(round(actualImageOsc/imageOsc * trueImageNumber, 3)))
-                    Isum, sigIsum = parse(Float64, nonEmptyLine[colNumIsum]), parse(Float64, nonEmptyLine[colNumSigIsum])
-                    Ipr, sigIpr = parse(Float64, nonEmptyLine[colNumIpr]), parse(Float64, nonEmptyLine[colNumSigIpr])
+                    imageNumber = Int16(ceil(round(actualImageOsc/imageOsc * trueImageNumber, 3)))
+                    Isum, sigIsum = parse(Float32, nonEmptyLine[colNumIsum]), parse(Float32, nonEmptyLine[colNumSigIsum])
+                    Ipr, sigIpr = parse(Float32, nonEmptyLine[colNumIpr]), parse(Float32, nonEmptyLine[colNumSigIpr])
 
                     #From the MTZ file from the MOSFLM output it seems that the
                     #sigma values for both the summed and profile fitted intensities
@@ -425,7 +425,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
                     elseif refLine == 3
                         #Extract the Lorentz-Polarisation correction factor from
                         #this line
-                        LP = parse(Float64, nonEmptyLine[colNumLP - (numMtzColsFor1stRefLine + numMtzColsFor2ndand3rdRefLines)])
+                        LP = parse(Float32, nonEmptyLine[colNumLP - (numMtzColsFor1stRefLine + numMtzColsFor2ndand3rdRefLines)])
 
                         ############################################################
                         #Mini Section: Create observation object for reflection
@@ -523,7 +523,7 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float64=
     numEffectiveImages = Int((rotFinish - rotStart)/imageOsc)
     imageArray = Vector{DiffractionImage}(numEffectiveImages)
     for imgNum = 1:numEffectiveImages
-        oscStart = rotStart + (imgNum - 1) * imageOsc
+        oscStart = Float32(rotStart + (imgNum - 1) * imageOsc)
         imageArray[imgNum] = DiffractionImage(oscStart, oscStart+imageOsc)
     end
 
