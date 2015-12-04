@@ -405,13 +405,6 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
                     #the precision from the user defined input. A
                     ############################################################
                     imageNumber = Int16(ceil(round(actualImageOsc/imageOsc * trueImageNumber, 1)))
-                    if imageNumber > Int16(45)
-                        println("Actual Image Oscillation: ", actualImageOsc)
-                        println("Chosen Image Oscillation: ", imageOsc)
-                        println("True Image Number: ", trueImageNumber)
-                        println("Image number calculated: ", imageNumber)
-                        error("you know how it is")
-                    end
                     Isum, sigIsum = parse(Float32, nonEmptyLine[colNumIsum]), parse(Float32, nonEmptyLine[colNumSigIsum])
                     Ipr, sigIpr = parse(Float32, nonEmptyLine[colNumIpr]), parse(Float32, nonEmptyLine[colNumSigIpr])
 
@@ -538,13 +531,25 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
         ############################################################################
     end
 
+    #Calculate number of total images (effectively these are discrete time intervals)
+    #with the oscillation provided by the user.
     numEffectiveImages = Int((rotFinish - rotStart)/imageOsc)
-    ############################################################################
-    #INSERT ERROR STATEMENT HERE!
-    #ESSENTIALLY WE WANT TO CHECK IF THERE ARE ANY CALCULATED IMAGE NUMBERS FOR
-    #REFLECTION OBSERVATIONS THAT ARE HIGHER THAN THE numEffectiveImages VALUE.
-    #WRITE THIS HERE
-    ############################################################################
+    #Check to make sure that all reflection observations have been allocated within
+    #the allowed range of images
+    for hkl in keys(hklList)
+        obsCounter = 0
+        for refObservation in hklList[hkl].observations
+            obsCounter += 1
+            for imgNums in refObservation.imageNums
+                if imgNums > numEffectiveImages
+                    errMsg = @sprintf("Observation %d for reflection (%d, %d, %d) has been allocated to image %d.\nThis shouldn't happen because the maximum number of images according to the user input is %d.\nIf you're seeing this warning then you'll need to contact Professor Elspeth Garman: elspeth.garman@bioch.ox.ac.uk to sort this out. Sorry for the inconvenience. ", obsCounter, origHKL[1], origHKL[2], origHKL[3], imgNums, numEffectiveImages)
+                    error(errMsg)
+                end
+            end
+        end
+    end
+
+    #Finally add diffraction images to an array.
     imageArray = Vector{DiffractionImage}(numEffectiveImages)
     for imgNum = 1:numEffectiveImages
         oscStart = Float32(rotStart + (imgNum - 1) * imageOsc)
