@@ -7,14 +7,15 @@ using Colors
 using Distributions
 using KernelDensity
 using StateSpace
+using DataFrames
 import Gadfly.ElementOrFunction
 
-# include("ReciprocalSpaceUtils.jl")
-# include("ElementDatabase.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
-# include("FilteringUtils.jl")
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
+include("FilteringUtils.jl")
 
 ######### Inputs ##########
 const xrayEnergy = Float32(12.7) #Set X-ray Energy
@@ -27,7 +28,7 @@ const sfFileLocation = "integration_scaling_files\\test450images_scaled1.mtz"
 const useSeqFile = true #Choose whether to use a sequence file to get variance and B-factor estimates
 const separateSymEquivs = false #Merge symmetry equivalents or keep them separate.
 const sigIDiffTol = Float32(0.1) #Tolerance level for difference between sigIpr and sigIsum
-const numOfRefs = Int32(10000) #Number of reflections to be used in data reduction analysis.
+const numOfRefs = Int32(20000) #Number of reflections to be used in data reduction analysis.
 
 const intensityType = "Combined" #How to deal with Ipr and Isum
 const numMtzColsFor1stRefLine = UInt8(9) #Number of columns in 1st MTZ Dump line for reflection information
@@ -36,7 +37,7 @@ const numMtzColsIntLineCTruncate = UInt8(6)
 const estimateTotalIntensityFromPartialRef = true #Estimate the total intensity from partial information.
 const additionalElements = "S 2"
 
-const imageOscillation = Float32(1.0) #degrees of oscillation for each image.
+const imageOscillation = Float32(0.1) #degrees of oscillation for each image.
 
 const minRefInResBin = UInt16(50) #choose minimum number of reflections in resolution bin.
 const minRefPerImage = UInt32(3)
@@ -51,7 +52,7 @@ const keepPercentageScaleData = Float32(0.9)
 const outputImageDir = "plots"
 
 const processVarCoeff = 1.0
-const estimatedObservationVar = 1000000.0
+const estimatedObservationVar = 1e14
 const measurementVarCoeff = 1.0
 const estMissObs = true
 
@@ -59,6 +60,8 @@ const estMissObs = true
 const α = 1e-3
 const β = 2.0
 const κ = 0.0
+
+const NUM_CYCLES = 5
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -147,12 +150,12 @@ inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFac
 # getInitialAmplitudes!(hklList, atomDict, scatteringAngles, elementDict, tempFacDict)
 
 # Get initial amplitudes by method 2
-#getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
+getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
 
 # Get initial amplitudes by method 3
-mtzDumpOutput = runMtzdump(sfFileLocation, Int32(1200))
-refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
-getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
+# mtzDumpOutput = runMtzdump(sfFileLocation, Int32(1200))
+# refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
+# getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
 
 #End Section: Extract initial guess structure factor amplitudes
 ################################################################################
@@ -170,9 +173,20 @@ getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
 #-------------------------------------------------------------------------------
 const NUM_IMAGES = length(imageArray)
 scaleFactor = modalScale
-a = 0
-b = 0
+hklCounter = 0
+numPlotColours = 3
+getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
+                                   transform=c -> deuteranopic(c, 0.5),
+                                   lchoices=Float64[65, 70, 75, 80],
+                                   cchoices=Float64[0, 50, 60, 70],
+                                   hchoices=linspace(0, 330, 24))
+
 for hkl in keys(hklList)
+    hklCounter += 1
+    if hklCounter == 2
+        println("made it through a round :)")
+        break
+    end
     reflection = hklList[hkl]
     D = SFMultiplierDict[reflection.scatteringAngle]
     Σ = f0SqrdDict[reflection.scatteringAngle]
@@ -183,6 +197,8 @@ for hkl in keys(hklList)
     #seems to work well in simulations. There isn't any theory to support this
     #though so may need to be changed.
     initialGuess = MvNormal([Float64(reflection.amplitude)], [Float64(reflection.amplitude)])
+    # println("Initial Guess State: ", mean(initialGuess))
+    # println("Initial Guess Var: ", cov(initialGuess))
     ############################################################################
 
     ########################## Get observation info ############################
@@ -208,10 +224,76 @@ for hkl in keys(hklList)
             end
         end
     end
-    println(hkl)
-    a = observationVec
-    b = observationVarVec
     ############################################################################
+
+    for iterNum in 1:NUM_CYCLES
+        ########################################################################
+        #Section: Perform Filtering
+        #-----------------------------------------------------------------------
+        y = observationVec'
+        params = UKFParameters(α, β, κ)
+        x_filtered = Array(AbstractMvNormal, size(y, 2) + 1)
+        x_filtered[1] = initialGuess
+        y_obs = zeros(y)
+        loglik = 0.0
+        for i in 1:size(y, 2)
+            y_current = y[:, i]
+            processFunction(state) = processFunction(mean(x_filtered[i])[1], D, σ)
+            observationFunction(state) = observationFunction(state, scaleFactor)
+            # if !isnan(y_current[1])
+            #     println("reflection amplitude: ", reflection.amplitude)
+            #     println("process Variance: ", σ^2)
+            #     println("Image Num: ", i)
+            #     println("observation is: ", y_current)
+            #     println("observation variance is: ", observationVarVec[i])
+            #     println()
+            # end
+            m = AdditiveNonLinUKFSSM(processFunction, [σ^2]',
+                                       observationFunction, [observationVarVec[i]]')
+            x_pred, sigma_points = StateSpace.predict(m, x_filtered[i], params)
+            y_pred, P_xy = observe(m, x_pred, sigma_points, y_current)
+
+            # Check for missing values in observation
+            y_Boolean = isnan(y_current)
+            if any(y_Boolean)
+                if estMissObs
+                    y_current, y_cov_mat = estimateMissingObs(m, x_pred, y_pred, y_current, y_Boolean)
+                    x_filtered[i+1] = update(m, x_pred, sigma_points, y_current, y_cov_mat)
+                    loglik += logpdf(observe(m, x_filtered[i+1], calcSigmaPoints(x_filtered[i+1], params), y_current)[1], y_current)
+                else
+                    x_filtered[i+1] = x_pred
+                end
+            else
+                x_filtered[i+1] = update(m, x_pred, sigma_points, y_current)
+                loglik += logpdf(observe(m, x_filtered[i+1], calcSigmaPoints(x_filtered[i+1], params), y_current)[1], y_current)
+            end
+            loglik += logpdf(x_pred, mean(x_filtered[i+1]))
+            y_obs[:,i] = y_current
+            println("New state is: ", mean(x_filtered[i+1]))
+        end
+        filtState = FilteredState(y_obs, x_filtered, loglik)
+        ########################################################################
+        #Mini Section: Plot Filtering Results
+        #-----------------------------------------------------------------------
+        df_fs = DataFrame(
+            x = 0:NUM_IMAGES,
+            y = vec(mean(filtState)),
+            ymin = vec(mean(filtState)) - 2*sqrt(vec(cov(filtState))),
+            ymax = vec(mean(filtState)) + 2*sqrt(vec(cov(filtState))),
+            f = "Filtered values"
+            )
+
+        pltflt = plot(
+        layer(df_fs, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon)
+        )
+        display(pltflt)
+        #End Mini Section: Plot Filtering Results
+        ########################################################################
+        #End Section: Perform Filtering
+        ########################################################################
+
+        ########################################################################
+    end
 end
 
 #End Section: Iteration section treating reflections independently
