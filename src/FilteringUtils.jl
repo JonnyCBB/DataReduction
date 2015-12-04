@@ -5,8 +5,8 @@
 
 This function takes in the dictionary of reflections as its input and returns a dictionary that tells the user which index in an array corresponds to a given reflection.
 """
-function createHKLIndexReferenceDict(hklList::Dict{Vector{Int64},Reflection})
-    hklIndexReference = Dict{Vector{Int64},Int64}()
+function createHKLIndexReferenceDict(hklList::Dict{Vector{Int16},Reflection})
+    hklIndexReference = Dict{Vector{Int16},UInt32}()
     counter = 0
     for hkl in keys(hklList)
         counter += 1
@@ -22,7 +22,7 @@ end
 
 This function takes in as input a reflection list dictionary `hklList` and a squared structure factor amplitude dictionary `f0SqrdDict` and returns a multivariate normal distribution representing the estimate of the initial state of the structure factor amplitudes of the crystal.
 """
-function getInitialState(hklList::Dict{Vector{Int64}, Reflection}, f0SqrdDict::Dict{Float64, Float64})
+function getInitialState(hklList::Dict{Vector{Int16}, Reflection}, f0SqrdDict::Dict{Float32, Float32})
     initialAmplitudes = Vector{Float64}(length(hklList))
     initialVariance = Vector{Float64}(length(hklList))
     counter = 0
