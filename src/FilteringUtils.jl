@@ -91,7 +91,7 @@ end
 #NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD OF A
 #RICIAN DISTRIBUTION.
 #processFunction(F::Float64, D::Float64, σ::Float64) = meanRice(F, D, σ)
-processFunction(F::Float64, D::Float64, σ::Float64) = D * F
+processFunction(F::AbstractFloat, D::AbstractFloat, σ::AbstractFloat) = D * F
 
 """
 # The Observation Function
@@ -102,6 +102,6 @@ This is the observation function for the Kalman Filter and describes how the int
 `amplitudes` is a vector of `Float64`'s that represent the amplitudes for each reflection at the previous time step.
 `K` is the scale factor for the current diffraction image.
 """
-function observationFunction(amplitudes::Vector{Float64}, K::Float64)
+function observationFunction(amplitudes::Vector{Float64}, K::AbstractFloat)
     return K * amplitudes.^2
 end
