@@ -50,10 +50,15 @@ const keepPercentageScaleData = Float32(0.9)
 
 const outputImageDir = "plots"
 
-const processVarCoeff = Float32(1.0)
-const observationVarCoeff = Float32(1000000.0)
-const measurementVarCoeff = Float32(1.0)
+const processVarCoeff = 1.0
+const estimatedObservationVar = 1000000.0
+const measurementVarCoeff = 1.0
 const estMissObs = true
+
+#Parameters for the Unscented Kalman Filter
+const α = 1e-3
+const β = 2.0
+const κ = 0.0
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -158,7 +163,75 @@ getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
 ########################################################################
 ########################################################################
 ########################################################################
-###########################################################################
+########################################################################
+
+################################################################################
+#Section: Iteration section treating reflections independently
+#-------------------------------------------------------------------------------
+const NUM_IMAGES = length(imageArray)
+scaleFactor = modalScale
+a = 0
+b = 0
+for hkl in keys(hklList)
+    reflection = hklList[hkl]
+    D = SFMultiplierDict[reflection.scatteringAngle]
+    Σ = f0SqrdDict[reflection.scatteringAngle]
+    σ = sqrt(abs(1.0 - D^2)*Σ)
+
+    ############################ Get initial State #############################
+    #NOTE: Setting the initial variance equal to the size of the initial state
+    #seems to work well in simulations. There isn't any theory to support this
+    #though so may need to be changed.
+    initialGuess = MvNormal([Float64(reflection.amplitude)], [Float64(reflection.amplitude)])
+    ############################################################################
+
+    ########################## Get observation info ############################
+    #Initialise the observation vector and the variances
+    observationVec = fill(NaN, NUM_IMAGES)
+    observationVarVec = fill(estimatedObservationVar, NUM_IMAGES)
+
+    #Insert the measured values of the intensities and their variances on the
+    #images where the reflection was actually measured.
+    #To prevent time going through every image we get the total number of
+    #observations for a reflection and once we've recorded that many
+    #observations we then break out of the loop.
+    numRefObs = length(reflection.observations)
+    for imgNum in 1:NUM_IMAGES
+        diffImage = imageArray[imgNum]
+        obsCount = 0
+        if haskey(diffImage.observationList, hkl)
+            obsCount += 1
+            observationVec[imgNum] = diffImage.observationList[hkl].intensity
+            observationVarVec[imgNum] = diffImage.observationList[hkl].sigI^2
+            if obsCount == numRefObs
+                break
+            end
+        end
+    end
+    println(hkl)
+    a = observationVec
+    b = observationVarVec
+    ############################################################################
+end
+
+#End Section: Iteration section treating reflections independently
+################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ################################################################################
 # #Section: Set up initial guess for the amplitudes
@@ -166,8 +239,7 @@ getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
 # initialStateEstimate = getInitialState(hklList, f0SqrdDict)
 # #End Section: Extract initial guess structure factor amplitudes
 # ################################################################################
-#
-#
+
 # ################################################################################
 # #Section: Perform filtering
 # #-------------------------------------------------------------------------------
