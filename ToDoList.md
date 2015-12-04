@@ -18,6 +18,8 @@ Not sure of any more yet.
 
 - I need to sort out the implementation of the Rician distribution for the structure factor amplitudes. The bessel function throws an error (Base.Math.AmosExecption(2) at special/bessel.jl:142) with some of the numbers that are used. I don't know what it is but it seems to be a problem when the Gaussian mean is much larger than the standard deviation. Maybe check it against another programming language to see what the problem might be.
 -   Need to allow for user to input TOTAL number of additional cofactor/ligand atoms.
+-   It looks as if a better estimate of the scale factor and how it varies smoothly over image number should make the filtered/smoothed estimates more reliable (less "overfitted").
+-   Need to sort out a way that the algorithm knows how to manipulate the process covariance value during the filtering/smoothing cycles to converge quickly to the correct value.
 -	Check to make sure the reflection multiplicity (epsilon factor) is correct
 -	Sort out expected intensities when sequence files aren't given.
 -	Sort out the atomic composition when NCS is present.
