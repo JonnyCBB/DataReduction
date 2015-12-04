@@ -10,12 +10,12 @@ using StateSpace
 using DataFrames
 import Gadfly.ElementOrFunction
 
-include("ReciprocalSpaceUtils.jl")
-include("ElementDatabase.jl")
-include("MtzdumpHandling.jl")
-include("SequenceFileParser.jl")
-include("UpdateAtomAndRefs.jl")
-include("FilteringUtils.jl")
+# include("ReciprocalSpaceUtils.jl")
+# include("ElementDatabase.jl")
+# include("MtzdumpHandling.jl")
+# include("SequenceFileParser.jl")
+# include("UpdateAtomAndRefs.jl")
+# include("FilteringUtils.jl")
 
 ######### Inputs ##########
 const xrayEnergy = Float32(12.7) #Set X-ray Energy
@@ -52,7 +52,7 @@ const keepPercentageScaleData = Float32(0.9)
 const outputImageDir = "plots"
 
 const processVarCoeff = 1.0
-const estimatedObservationVar = 1e14
+const estimatedObservationVar = 1e20
 const measurementVarCoeff = 1.0
 const estMissObs = true
 
@@ -226,6 +226,10 @@ for hkl in keys(hklList)
     end
     ############################################################################
 
+    #This value for m is only used to make sure the variable is in the required
+    #scope. m is rewritten before it is actually used.
+    m = AdditiveNonLinUKFSSM(processFunction, [σ^2]',
+                               observationFunction, [observationVarVec[1]]')
     for iterNum in 1:NUM_CYCLES
         ########################################################################
         #Section: Perform Filtering
@@ -269,7 +273,6 @@ for hkl in keys(hklList)
             end
             loglik += logpdf(x_pred, mean(x_filtered[i+1]))
             y_obs[:,i] = y_current
-            println("New state is: ", mean(x_filtered[i+1]))
         end
         filtState = FilteredState(y_obs, x_filtered, loglik)
         ########################################################################
@@ -292,6 +295,64 @@ for hkl in keys(hklList)
         #End Section: Perform Filtering
         ########################################################################
 
+
+        ########################################################################
+        #Section: Perform Smoothing
+        #-----------------------------------------------------------------------
+        n = size(filtState.observations, 2)
+        smooth_dist = Array(AbstractMvNormal, n)
+        #If the final filtered amplitude value was negative then set it to zero.
+        if mean(filtState.state[end])[1] >= 0.0
+            smooth_dist[end] = filtState.state[end]
+        else
+            smooth_dist[end] = MvNormal([0.0], cov(filtState.state[end]))
+        end
+        loglik = logpdf(observe(m, smooth_dist[end], calcSigmaPoints(smooth_dist[end], params), filtState.observations[:, end])[1], filtState.observations[:, end])
+        for i in (n - 1):-1:1
+            sp = calcSigmaPoints(filtState.state[i+1], params)
+            processFunction(state) = processFunction(mean(x_filtered[i+1])[1], D, σ)
+            observationFunction(state) = observationFunction(state, scaleFactor)
+            m = AdditiveNonLinUKFSSM(processFunction, [σ^2]',
+                                       observationFunction, [observationVarVec[i]]')
+            pred_state, cross_covariance = smoothedTimeUpdate(m, filtState.state[i+1], sp)
+            smootherGain = cross_covariance * inv(cov(pred_state))
+            x_smooth = mean(filtState.state[i+1]) + smootherGain * (mean(smooth_dist[i+1]) - mean(pred_state))
+            P_smooth = cov(filtState.state[i+1]) + smootherGain * (cov(smooth_dist[i+1]) - cov(pred_state)) * smootherGain'
+            ################################################################
+            #set any negative amplitude values to zero.
+            if x_smooth[1] < 0.0
+                x_smooth[1] = 0.0
+            end
+            ################################################################
+            smooth_dist[i] = MvNormal(x_smooth, P_smooth)
+            loglik += logpdf(predictSmooth(m, smooth_dist[i], params), mean(smooth_dist[i+1]))
+            if !any(isnan(filtState.observations[:, i]))
+                loglik += logpdf(observe(m, smooth_dist[i], calcSigmaPoints(smooth_dist[i], params), filtState.observations[:, i])[1], filtState.observations[:, i])
+            end
+        end
+        smoothedState = FilteredState(filtState.observations, smooth_dist, loglik)
+
+
+        ########################################################################
+        #Mini Section: Plot Smoothing Results
+        #-----------------------------------------------------------------------
+        df_ss = DataFrame(
+            x = 1:NUM_IMAGES,
+            y = vec(mean(smoothedState)),
+            ymin = vec(mean(smoothedState)) - 2*sqrt(vec(cov(smoothedState))),
+            ymax = vec(mean(smoothedState)) + 2*sqrt(vec(cov(smoothedState))),
+            f = "Filtered values"
+            )
+
+        pltsmth = plot(
+        #layer(x=1:NUM_IMAGES, y=zeros(NUM_IMAGES), Geom.line, Theme(default_color=colorant"black")),
+        #layer(xintercept=randVec, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
+        layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
+        )
+        display(pltsmth)
+        #End Mini Section: Plot Smoothing Results
+        ########################################################################
+        #End Section: Perform Smoothing
         ########################################################################
     end
 end
