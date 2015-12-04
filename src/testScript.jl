@@ -172,7 +172,8 @@ getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
 #Section: Iteration section treating reflections independently
 #-------------------------------------------------------------------------------
 const NUM_IMAGES = length(imageArray)
-scaleFactor = modalScale
+#scaleFactor = modalScale
+scaleFactor = 1/40.5778 #Value I obtained from CTruncate
 hklCounter = 0
 numPlotColours = 3
 getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
@@ -182,6 +183,7 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
                                    hchoices=linspace(0, 330, 24))
 
 for hkl in keys(hklList)
+    println(hkl)
     hklCounter += 1
     if hklCounter == 2
         println("made it through a round :)")
@@ -228,9 +230,23 @@ for hkl in keys(hklList)
 
     #This value for m is only used to make sure the variable is in the required
     #scope. m is rewritten before it is actually used.
+    oldInitState = MvNormal([0.0],[1.0])
+    smoothedState = FilteredState(observationVec', Array(AbstractMvNormal,0), 0.0)
     m = AdditiveNonLinUKFSSM(processFunction, [σ^2]',
                                observationFunction, [observationVarVec[1]]')
+    loglikVals = Vector{Float64}(NUM_IMAGES)
     for iterNum in 1:NUM_CYCLES
+        if iterNum != 1
+            newStateVec = 1/D * smoothedState.state[1].μ
+            #newStateCov = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
+            if iterNum != 2
+                newStateCov = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
+            else
+                newStateCov = D * cov(smoothedState.state[1]) * D + m.V
+            end
+            initialGuess = MvNormal(newStateVec, newStateCov)
+            #initialGuess = smoothedState.state[1]
+        end
         ########################################################################
         #Section: Perform Filtering
         #-----------------------------------------------------------------------
@@ -275,6 +291,7 @@ for hkl in keys(hklList)
             y_obs[:,i] = y_current
         end
         filtState = FilteredState(y_obs, x_filtered, loglik)
+        oldInitState = filtState.state[1]
         ########################################################################
         #Mini Section: Plot Filtering Results
         #-----------------------------------------------------------------------
