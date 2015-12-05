@@ -10,12 +10,12 @@ using StateSpace
 using DataFrames
 import Gadfly.ElementOrFunction
 
-# include("ReciprocalSpaceUtils.jl")
-# include("ElementDatabase.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
-# include("FilteringUtils.jl")
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
+include("FilteringUtils.jl")
 
 ######### Inputs ##########
 const xrayEnergy = Float32(12.7) #Set X-ray Energy
@@ -51,9 +51,9 @@ const keepPercentageScaleData = Float32(0.9)
 
 const outputImageDir = "plots"
 
-const processVarCoeff = 1e0
+const processVarCoeff = 1e-1
 const estimatedObservationVar = 1e6
-const measurementVarCoeff = 1e-0
+const measurementVarCoeff = 1e0
 const estMissObs = true
 
 #Parameters for the Unscented Kalman Filter
@@ -61,7 +61,7 @@ const α = 1e-3
 const β = 2.0
 const κ = 0.0
 
-const NUM_CYCLES = 5
+const NUM_CYCLES = 10
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
