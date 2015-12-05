@@ -35,7 +35,7 @@ const numMtzColsFor1stRefLine = UInt8(9) #Number of columns in 1st MTZ Dump line
 const numMtzColsFor2ndand3rdRefLines = UInt8(4) #Number of columns in 2nd/3rd MTZ Dump line for reflection information
 const numMtzColsIntLineCTruncate = UInt8(6)
 const estimateTotalIntensityFromPartialRef = true #Estimate the total intensity from partial information.
-const additionalElements = "S 2"
+const additionalElements = ""
 
 const imageOscillation = Float32(0.1) #degrees of oscillation for each image.
 
@@ -51,9 +51,9 @@ const keepPercentageScaleData = Float32(0.9)
 
 const outputImageDir = "plots"
 
-const processVarCoeff = 1.0
-const estimatedObservationVar = 1e20
-const measurementVarCoeff = 1.0
+const processVarCoeff = 1e0
+const estimatedObservationVar = 1e6
+const measurementVarCoeff = 1e-0
 const estMissObs = true
 
 #Parameters for the Unscented Kalman Filter
@@ -182,13 +182,13 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
                                    cchoices=Float64[0, 50, 60, 70],
                                    hchoices=linspace(0, 330, 24))
 
-for hkl in keys(hklList)
-    println(hkl)
-    hklCounter += 1
-    if hklCounter == 2
-        println("made it through a round :)")
-        break
-    end
+# for hkl in keys(hklList)
+#     hklCounter += 1
+#     if hklCounter == 2
+#         println("made it through a round :)")
+#         break
+#     end
+    hkl = [1,2,11]
     reflection = hklList[hkl]
     D = SFMultiplierDict[reflection.scatteringAngle]
     Σ = f0SqrdDict[reflection.scatteringAngle]
@@ -199,6 +199,7 @@ for hkl in keys(hklList)
     #seems to work well in simulations. There isn't any theory to support this
     #though so may need to be changed.
     initialGuess = MvNormal([Float64(reflection.amplitude)], [Float64(reflection.amplitude)])
+    intGuess = MvNormal([Float64(reflection.amplitude)], [Float64(reflection.amplitude)])
     # println("Initial Guess State: ", mean(initialGuess))
     # println("Initial Guess Var: ", cov(initialGuess))
     ############################################################################
@@ -214,13 +215,15 @@ for hkl in keys(hklList)
     #observations for a reflection and once we've recorded that many
     #observations we then break out of the loop.
     numRefObs = length(reflection.observations)
+    imagesWithActualObs = Vector{Int64}()
     for imgNum in 1:NUM_IMAGES
         diffImage = imageArray[imgNum]
         obsCount = 0
         if haskey(diffImage.observationList, hkl)
             obsCount += 1
+            push!(imagesWithActualObs, imgNum)
             observationVec[imgNum] = diffImage.observationList[hkl].intensity
-            observationVarVec[imgNum] = diffImage.observationList[hkl].sigI^2
+            observationVarVec[imgNum] = measurementVarCoeff * diffImage.observationList[hkl].sigI^2
             if obsCount == numRefObs
                 break
             end
@@ -234,7 +237,7 @@ for hkl in keys(hklList)
     smoothedState = FilteredState(observationVec', Array(AbstractMvNormal,0), 0.0)
     m = AdditiveNonLinUKFSSM(processFunction, [σ^2]',
                                observationFunction, [observationVarVec[1]]')
-    loglikVals = Vector{Float64}(NUM_IMAGES)
+    loglikVals = Vector{Float64}(NUM_CYCLES)
     for iterNum in 1:NUM_CYCLES
         if iterNum != 1
             newStateVec = 1/D * smoothedState.state[1].μ
@@ -258,20 +261,19 @@ for hkl in keys(hklList)
         loglik = 0.0
         for i in 1:size(y, 2)
             y_current = y[:, i]
-            processFunction(state) = processFunction(mean(x_filtered[i])[1], D, σ)
+            processFunction(state) = processFunction(state, D, σ)
             observationFunction(state) = observationFunction(state, scaleFactor)
-            # if !isnan(y_current[1])
+            m = AdditiveNonLinUKFSSM(processFunction, [processVarCoeff * σ^2]', observationFunction, [observationVarVec[i]]')
+            x_pred, sigma_points = StateSpace.predict(m, x_filtered[i], params)
+            y_pred, P_xy = observe(m, x_pred, sigma_points, y_current)
+            # if !any(isnan(y_current))
             #     println("reflection amplitude: ", reflection.amplitude)
             #     println("process Variance: ", σ^2)
             #     println("Image Num: ", i)
             #     println("observation is: ", y_current)
             #     println("observation variance is: ", observationVarVec[i])
-            #     println()
+            #     println("predicted Intensity is: ", y_pred)
             # end
-            m = AdditiveNonLinUKFSSM(processFunction, [σ^2]',
-                                       observationFunction, [observationVarVec[i]]')
-            x_pred, sigma_points = StateSpace.predict(m, x_filtered[i], params)
-            y_pred, P_xy = observe(m, x_pred, sigma_points, y_current)
 
             # Check for missing values in observation
             y_Boolean = isnan(y_current)
@@ -304,7 +306,8 @@ for hkl in keys(hklList)
             )
 
         pltflt = plot(
-        layer(df_fs, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon)
+        layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
+        layer(df_fs, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
         )
         display(pltflt)
         #End Mini Section: Plot Filtering Results
@@ -327,9 +330,9 @@ for hkl in keys(hklList)
         loglik = logpdf(observe(m, smooth_dist[end], calcSigmaPoints(smooth_dist[end], params), filtState.observations[:, end])[1], filtState.observations[:, end])
         for i in (n - 1):-1:1
             sp = calcSigmaPoints(filtState.state[i+1], params)
-            processFunction(state) = processFunction(mean(x_filtered[i+1])[1], D, σ)
+            processFunction(state) = processFunction(state, D, σ)
             observationFunction(state) = observationFunction(state, scaleFactor)
-            m = AdditiveNonLinUKFSSM(processFunction, [σ^2]',
+            m = AdditiveNonLinUKFSSM(processFunction, [processVarCoeff * σ^2]',
                                        observationFunction, [observationVarVec[i]]')
             pred_state, cross_covariance = smoothedTimeUpdate(m, filtState.state[i+1], sp)
             smootherGain = cross_covariance * inv(cov(pred_state))
@@ -348,6 +351,7 @@ for hkl in keys(hklList)
             end
         end
         smoothedState = FilteredState(filtState.observations, smooth_dist, loglik)
+        loglikVals[iterNum] = smoothedState.loglik
 
 
         ########################################################################
@@ -363,7 +367,7 @@ for hkl in keys(hklList)
 
         pltsmth = plot(
         #layer(x=1:NUM_IMAGES, y=zeros(NUM_IMAGES), Geom.line, Theme(default_color=colorant"black")),
-        #layer(xintercept=randVec, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
+        layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
         layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
         )
         display(pltsmth)
@@ -372,7 +376,9 @@ for hkl in keys(hklList)
         #End Section: Perform Smoothing
         ########################################################################
     end
-end
+    pltloglik = plot(x=1:NUM_CYCLES, y=loglikVals, Geom.line, Theme(line_width=4px))
+    display(pltloglik)
+# end
 
 #End Section: Iteration section treating reflections independently
 ################################################################################

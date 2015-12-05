@@ -74,7 +74,7 @@ This is the process function for the Kalman Filter and describes how the mean of
 `D` is a vector of `Float64`'s that are the corresponding structure factor multipliers (Luzzati 1952) for each reflection. These are defined in Read 1990.
 `σ` is a vector of `Float64`'s that represent the standard deviations of the normally distributed structure factors (not the amplitudes).
 """
-function processFunction(amplitudes::Vector{Float64}, D::Vector{Float64}, σ::Vector{Float64})
+function processFunction(amplitudes, D::Vector{Float64}, σ::Vector{Float64})
     newAmplitudes = Vector{Float64}(length(amplitudes))
     counter = 0
     for F in amplitudes
@@ -91,7 +91,7 @@ end
 #NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD OF A
 #RICIAN DISTRIBUTION.
 #processFunction(F::Float64, D::Float64, σ::Float64) = meanRice(F, D, σ)
-processFunction(F::AbstractFloat, D::AbstractFloat, σ::AbstractFloat) = D * F
+processFunction(F, D::AbstractFloat, σ::AbstractFloat) = D * F
 
 """
 # The Observation Function
@@ -102,6 +102,6 @@ This is the observation function for the Kalman Filter and describes how the int
 `amplitudes` is a vector of `Float64`'s that represent the amplitudes for each reflection at the previous time step.
 `K` is the scale factor for the current diffraction image.
 """
-function observationFunction(amplitudes::Vector{Float64}, K::AbstractFloat)
+function observationFunction(amplitudes, K::AbstractFloat)
     return K * amplitudes.^2
 end
