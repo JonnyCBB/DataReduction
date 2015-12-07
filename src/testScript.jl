@@ -10,12 +10,12 @@ using StateSpace
 using DataFrames
 import Gadfly.ElementOrFunction
 
-include("ReciprocalSpaceUtils.jl")
-include("ElementDatabase.jl")
-include("MtzdumpHandling.jl")
-include("SequenceFileParser.jl")
-include("UpdateAtomAndRefs.jl")
-include("FilteringUtils.jl")
+# include("ReciprocalSpaceUtils.jl")
+# include("ElementDatabase.jl")
+# include("MtzdumpHandling.jl")
+# include("SequenceFileParser.jl")
+# include("UpdateAtomAndRefs.jl")
+# include("FilteringUtils.jl")
 
 ######### Inputs ##########
 const xrayEnergy = Float32(12.7) #Set X-ray Energy
@@ -51,7 +51,7 @@ const keepPercentageScaleData = Float32(0.9)
 
 const outputImageDir = "plots"
 
-const processVarCoeff = 1e-1
+const processVarCoeff = 1e0
 const estimatedObservationVar = 1e6
 const measurementVarCoeff = 1e0
 const estMissObs = true
@@ -61,7 +61,7 @@ const α = 1e-3
 const β = 2.0
 const κ = 0.0
 
-const NUM_CYCLES = 10
+const NUM_CYCLES = 100
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -188,7 +188,7 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
 #         println("made it through a round :)")
 #         break
 #     end
-    hkl = [1,2,11]
+    hkl = [0,1,47]
     reflection = hklList[hkl]
     D = SFMultiplierDict[reflection.scatteringAngle]
     Σ = f0SqrdDict[reflection.scatteringAngle]
@@ -261,6 +261,7 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
         loglik = 0.0
         for i in 1:size(y, 2)
             y_current = y[:, i]
+            σ = sqrt(abs(1.0 - D^2) * mean(initialGuess)[1]^2)
             processFunction(state) = processFunction(state, D, σ)
             observationFunction(state) = observationFunction(state, scaleFactor)
             m = AdditiveNonLinUKFSSM(processFunction, [processVarCoeff * σ^2]', observationFunction, [observationVarVec[i]]')
@@ -309,7 +310,7 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
         layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
         layer(df_fs, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
         )
-        display(pltflt)
+        #display(pltflt)
         #End Mini Section: Plot Filtering Results
         ########################################################################
         #End Section: Perform Filtering
@@ -352,6 +353,10 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
         end
         smoothedState = FilteredState(filtState.observations, smooth_dist, loglik)
         loglikVals[iterNum] = smoothedState.loglik
+        println()
+        println("Interation: ", iterNum)
+        println("Mean estimate is: ", vec(mean(smoothedState))[1])
+        println("Sigma value is: ", sqrt(vec(cov(smoothedState))[1]))
 
 
         ########################################################################
@@ -370,7 +375,9 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
         layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
         layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
         )
-        display(pltsmth)
+        if iterNum == NUM_CYCLES
+            display(pltsmth)
+        end
         #End Mini Section: Plot Smoothing Results
         ########################################################################
         #End Section: Perform Smoothing
