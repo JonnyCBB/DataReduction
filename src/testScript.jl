@@ -61,7 +61,10 @@ const α = 1e-3
 const β = 2.0
 const κ = 0.0
 
-const NUM_CYCLES = 100
+const NUM_CYCLES = 50
+const USE_WEAK_REF_PRIOR = false
+const WEAK_AMP_THRESHOLD = 3.0
+const NUM_STD_FOR_INTEGRATION = 6.0
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -188,7 +191,7 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
 #         println("made it through a round :)")
 #         break
 #     end
-    hkl = [0,1,47]
+    hkl = [0,53,15]
     reflection = hklList[hkl]
     D = SFMultiplierDict[reflection.scatteringAngle]
     Σ = f0SqrdDict[reflection.scatteringAngle]
@@ -246,6 +249,32 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
                 newStateCov = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
             else
                 newStateCov = D * cov(smoothedState.state[1]) * D + m.V
+            end
+            #Calculate F/sigF to determine strength of amplitude
+            amplitudeStrength = newStateVec[1]/sqrt(newStateCov[1])
+
+            #If the amplitude is weak and the user is happy to use Bayesian
+            #methods to get a "stronger/better" amplitude estimate then let's
+            #do it: lets get a "better" amplitude estimate.
+            if USE_WEAK_REF_PRIOR && amplitudeStrength < WEAK_AMP_THRESHOLD
+                println("I'm doing the Bayesian stuff :)")
+                if reflection.isCentric
+                    F = newStateVec[1]
+                    varF = newStateCov[1]
+                    expFun(x) = 2x/varF * sqrt(2/(π*Σ)) * exp(-(x^2 + F^2)/varF - x^2/(2*Σ)) * besseli(0,2*x*F/varF)
+                    expFunNum(x) = x * expFun(x)
+                    expFunDenom = quadgk(expFun, 0.0, F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                    expFunPred(x) = expFunNum(x)/expFunDenom
+                    newStateVec = [quadgk(expFunPred, 0.0, F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]]
+                else
+                    F = newStateVec[1]
+                    varF = newStateCov[1]
+                    expFun(x) = 4*x*F/(Σ*varF) * exp(-(x^2 + F^2)/varF - x^2/Σ) * besseli(0,2*x*F/varF)
+                    expFunNum(x) = x * expFun(x)
+                    expFunDenom = quadgk(expFun, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                    expFunPred(x) = expFunNum(x)/expFunDenom
+                    newStateVec = [quadgk(expFunPred, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]]
+                end
             end
             initialGuess = MvNormal(newStateVec, newStateCov)
             #initialGuess = smoothedState.state[1]
