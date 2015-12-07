@@ -61,10 +61,13 @@ const α = 1e-3
 const β = 2.0
 const κ = 0.0
 
-const NUM_CYCLES = 50
+const NUM_CYCLES = 200
+const MIN_CYCLE_NUM = 5
 const USE_WEAK_REF_PRIOR = false
+const USE_BAYESIAN_EST_VALUES_AS_FINAL = false
 const WEAK_AMP_THRESHOLD = 3.0
 const NUM_STD_FOR_INTEGRATION = 6.0
+const LOG_LIK_THRESHOLD = 1e-3
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -241,6 +244,7 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
     m = AdditiveNonLinUKFSSM(processFunction, [σ^2]',
                                observationFunction, [observationVarVec[1]]')
     loglikVals = Vector{Float64}(NUM_CYCLES)
+    totalIterNum = 0
     for iterNum in 1:NUM_CYCLES
         if iterNum != 1
             newStateVec = 1/D * smoothedState.state[1].μ
@@ -257,7 +261,6 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
             #methods to get a "stronger/better" amplitude estimate then let's
             #do it: lets get a "better" amplitude estimate.
             if USE_WEAK_REF_PRIOR && amplitudeStrength < WEAK_AMP_THRESHOLD
-                println("I'm doing the Bayesian stuff :)")
                 if reflection.isCentric
                     F = newStateVec[1]
                     varF = newStateCov[1]
@@ -404,15 +407,41 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
         layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
         layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
         )
-        if iterNum == NUM_CYCLES
-            display(pltsmth)
-        end
         #End Mini Section: Plot Smoothing Results
         ########################################################################
         #End Section: Perform Smoothing
         ########################################################################
+        if iterNum > MIN_CYCLE_NUM
+            if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum == NUM_CYCLES
+                display(pltsmth)
+                totalIterNum = iterNum
+                reflection.amplitude = 1/D * smoothedState.state[1].μ[1]
+                amplitudeVariance = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
+                reflection.amplitudeSig = sqrt(amplitudeVariance[1])
+                if USE_BAYESIAN_EST_VALUES_AS_FINAL
+                    if reflection.isCentric
+                        F = reflection.amplitude
+                        varF = reflection.amplitudeSig^2
+                        expFun(x) = 2x/varF * sqrt(2/(π*Σ)) * exp(-(x^2 + F^2)/varF - x^2/(2*Σ)) * besseli(0,2*x*F/varF)
+                        expFunNum(x) = x * expFun(x)
+                        expFunDenom = quadgk(expFun, 0.0, F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                        expFunPred(x) = expFunNum(x)/expFunDenom
+                        reflection.amplitude = quadgk(expFunPred, 0.0, F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                    else
+                        F = reflection.amplitude
+                        varF = reflection.amplitudeSig^2
+                        expFun(x) = 4*x*F/(Σ*varF) * exp(-(x^2 + F^2)/varF - x^2/Σ) * besseli(0,2*x*F/varF)
+                        expFunNum(x) = x * expFun(x)
+                        expFunDenom = quadgk(expFun, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                        expFunPred(x) = expFunNum(x)/expFunDenom
+                        reflection.amplitude = quadgk(expFunPred, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                    end
+                end
+                break
+            end
+        end
     end
-    pltloglik = plot(x=1:NUM_CYCLES, y=loglikVals, Geom.line, Theme(line_width=4px))
+    pltloglik = plot(x=1:totalIterNum, y=loglikVals[1:totalIterNum], Geom.line, Theme(line_width=4px))
     display(pltloglik)
 # end
 
