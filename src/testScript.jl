@@ -188,13 +188,12 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
                                    cchoices=Float64[0, 50, 60, 70],
                                    hchoices=linspace(0, 330, 24))
 
-# for hkl in keys(hklList)
-#     hklCounter += 1
-#     if hklCounter == 2
-#         println("made it through a round :)")
-#         break
-#     end
-    hkl = [0,53,15]
+for hkl in keys(hklList)
+    hklCounter += 1
+    if hklCounter == 3
+        println("made it through a round :)")
+        break
+    end
     reflection = hklList[hkl]
     D = SFMultiplierDict[reflection.scatteringAngle]
     Σ = f0SqrdDict[reflection.scatteringAngle]
@@ -443,7 +442,7 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
     end
     pltloglik = plot(x=1:totalIterNum, y=loglikVals[1:totalIterNum], Geom.line, Theme(line_width=4px))
     display(pltloglik)
-# end
+end
 
 #End Section: Iteration section treating reflections independently
 ################################################################################
