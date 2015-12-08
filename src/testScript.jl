@@ -61,8 +61,9 @@ const α = 1e-3
 const β = 2.0
 const κ = 0.0
 
-const NUM_CYCLES = 200
+const NUM_CYCLES = 100
 const MIN_CYCLE_NUM = 5
+const MIN_SCALING_CYCLE_NUM = 3
 const USE_WEAK_REF_PRIOR = false
 const USE_BAYESIAN_EST_VALUES_AS_FINAL = false
 const WEAK_AMP_THRESHOLD = 3.0
@@ -159,7 +160,7 @@ inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFac
 getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
 
 # Get initial amplitudes by method 3
-# mtzDumpOutput = runMtzdump(sfFileLocation, Int32(1200))
+# mtzDumpOutput = runMtzdump(sfFileLocation, Int32(2000))
 # refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
 # getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
 
@@ -190,7 +191,7 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
 
 for hkl in keys(hklList)
     hklCounter += 1
-    if hklCounter == 3
+    if hklCounter == 4
         println("made it through a round :)")
         break
     end
@@ -198,6 +199,7 @@ for hkl in keys(hklList)
     D = SFMultiplierDict[reflection.scatteringAngle]
     Σ = f0SqrdDict[reflection.scatteringAngle]
     σ = sqrt(abs(1.0 - D^2)*Σ)
+    scalingCycles = true
 
     ############################ Get initial State #############################
     #NOTE: Setting the initial variance equal to the size of the initial state
@@ -244,6 +246,7 @@ for hkl in keys(hklList)
                                observationFunction, [observationVarVec[1]]')
     loglikVals = Vector{Float64}(NUM_CYCLES)
     totalIterNum = 0
+    endScalingIter = 0
     for iterNum in 1:NUM_CYCLES
         if iterNum != 1
             newStateVec = 1/D * smoothedState.state[1].μ
@@ -292,7 +295,16 @@ for hkl in keys(hklList)
         loglik = 0.0
         for i in 1:size(y, 2)
             y_current = y[:, i]
-            σ = sqrt(abs(1.0 - D^2) * mean(initialGuess)[1]^2)
+            if scalingCycles
+                processVariance = abs(1.0 - D^2) * mean(initialGuess)[1]
+            else
+                processVariance = abs(1.0 - D^2) * mean(initialGuess)[1]^2
+            end
+            if reflection.isCentric
+                σ = sqrt(2 * reflection.epsilon * processVariance)
+            else
+                σ = sqrt(reflection.epsilon * processVariance)
+            end
             processFunction(state) = processFunction(state, D, σ)
             observationFunction(state) = observationFunction(state, scaleFactor)
             m = AdditiveNonLinUKFSSM(processFunction, [processVarCoeff * σ^2]', observationFunction, [observationVarVec[i]]')
@@ -398,7 +410,7 @@ for hkl in keys(hklList)
             y = vec(mean(smoothedState)),
             ymin = vec(mean(smoothedState)) - 2*sqrt(vec(cov(smoothedState))),
             ymax = vec(mean(smoothedState)) + 2*sqrt(vec(cov(smoothedState))),
-            f = "Filtered values"
+            f = "Smoothed values"
             )
 
         pltsmth = plot(
@@ -410,37 +422,47 @@ for hkl in keys(hklList)
         ########################################################################
         #End Section: Perform Smoothing
         ########################################################################
-        if iterNum > MIN_CYCLE_NUM
-            if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum == NUM_CYCLES
-                display(pltsmth)
-                totalIterNum = iterNum
-                reflection.amplitude = 1/D * smoothedState.state[1].μ[1]
-                amplitudeVariance = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
-                reflection.amplitudeSig = sqrt(amplitudeVariance[1])
-                if USE_BAYESIAN_EST_VALUES_AS_FINAL
-                    if reflection.isCentric
-                        F = reflection.amplitude
-                        varF = reflection.amplitudeSig^2
-                        expFun(x) = 2x/varF * sqrt(2/(π*Σ)) * exp(-(x^2 + F^2)/varF - x^2/(2*Σ)) * besseli(0,2*x*F/varF)
-                        expFunNum(x) = x * expFun(x)
-                        expFunDenom = quadgk(expFun, 0.0, F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
-                        expFunPred(x) = expFunNum(x)/expFunDenom
-                        reflection.amplitude = quadgk(expFunPred, 0.0, F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
-                    else
-                        F = reflection.amplitude
-                        varF = reflection.amplitudeSig^2
-                        expFun(x) = 4*x*F/(Σ*varF) * exp(-(x^2 + F^2)/varF - x^2/Σ) * besseli(0,2*x*F/varF)
-                        expFunNum(x) = x * expFun(x)
-                        expFunDenom = quadgk(expFun, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
-                        expFunPred(x) = expFunNum(x)/expFunDenom
-                        reflection.amplitude = quadgk(expFunPred, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
-                    end
+        if iterNum > MIN_SCALING_CYCLE_NUM
+            if scalingCycles
+                if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_SCALING_CYCLE_NUM]) < LOG_LIK_THRESHOLD
+                    endScalingIter = iterNum
+                    scalingCycles = false
                 end
-                break
+            elseif iterNum > MIN_CYCLE_NUM + endScalingIter
+                if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum == NUM_CYCLES
+                    display(pltsmth)
+                    totalIterNum = iterNum
+                    reflection.amplitude = 1/D * smoothedState.state[1].μ[1]
+                    amplitudeVariance = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
+                    reflection.amplitudeSig = sqrt(amplitudeVariance[1])
+                    if USE_BAYESIAN_EST_VALUES_AS_FINAL
+                        if reflection.isCentric
+                            F = reflection.amplitude
+                            varF = reflection.amplitudeSig^2
+                            expFun(x) = 2x/varF * sqrt(2/(π*Σ)) * exp(-(x^2 + F^2)/varF - x^2/(2*Σ)) * besseli(0,2*x*F/varF)
+                            expFunNum(x) = x * expFun(x)
+                            expFunDenom = quadgk(expFun, 0.0, F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                            expFunPred(x) = expFunNum(x)/expFunDenom
+                            reflection.amplitude = quadgk(expFunPred, 0.0, F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                        else
+                            F = reflection.amplitude
+                            varF = reflection.amplitudeSig^2
+                            expFun(x) = 4*x*F/(Σ*varF) * exp(-(x^2 + F^2)/varF - x^2/Σ) * besseli(0,2*x*F/varF)
+                            expFunNum(x) = x * expFun(x)
+                            expFunDenom = quadgk(expFun, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                            expFunPred(x) = expFunNum(x)/expFunDenom
+                            reflection.amplitude = quadgk(expFunPred, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
+                        end
+                    end
+                    break
+                end
             end
         end
     end
-    pltloglik = plot(x=1:totalIterNum, y=loglikVals[1:totalIterNum], Geom.line, Theme(line_width=4px))
+    pltloglik = plot(
+    layer(x=1:totalIterNum, y=loglikVals[1:totalIterNum], Geom.line, Theme(line_width=4px)),
+    layer(xintercept=[endScalingIter], Geom.vline, Theme(default_color=getColors[2], line_width=4px))
+    )
     display(pltloglik)
 end
 
