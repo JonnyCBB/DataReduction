@@ -348,12 +348,12 @@ end
 #we just use the square root of the observed intensity on the image.
 #Otherwise if the intensity is negative then I just set the amplitude
 #value to zero.
-function getInitialAmplitudes!(hklList::Dict{Vector{Int16}, Reflection}, refAmpDict::Dict{Vector{Int16}, Float32}, scaleFac::Float32)
+function getInitialAmplitudes!(hklList::Dict{Vector{Int16}, Reflection}, refAmpDict::Dict{Vector{Int16}, Float32})
     for hkl in keys(hklList)
         maxIntensity::Float32 = -1000.0
         reflection = hklList[hkl]
         if haskey(refAmpDict, reflection.symEquivHKL)
-            reflection.amplitude = refAmpDict[reflection.symEquivHKL] / scaleFac
+            reflection.amplitude = refAmpDict[reflection.symEquivHKL]
         else
             for observation in reflection.observations
                 if observation.intensity > maxIntensity

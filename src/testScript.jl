@@ -10,12 +10,12 @@ using StateSpace
 using DataFrames
 import Gadfly.ElementOrFunction
 
-# include("ReciprocalSpaceUtils.jl")
-# include("ElementDatabase.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
-# include("FilteringUtils.jl")
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
+include("FilteringUtils.jl")
 
 ######### Inputs ##########
 const xrayEnergy = Float32(12.7) #Set X-ray Energy
@@ -24,7 +24,7 @@ const integrationFileLocation = "integration_scaling_files\\pointless.mtz"
 # const integrationFileLocation = "integration_scaling_files\\test450images.mtz"
 const sequenceFileLocation = "SequenceFiles\\2BN3fasta.txt"
 # const sequenceFileLocation = "SequenceFiles\\4X4Vfasta.txt"
-const sfFileLocation = "integration_scaling_files\\test450images_scaled1.mtz"
+const sfFileLocation = "integration_scaling_files\\test450images_scaled1_withSeq.mtz"
 const useSeqFile = true #Choose whether to use a sequence file to get variance and B-factor estimates
 const separateSymEquivs = false #Merge symmetry equivalents or keep them separate.
 const sigIDiffTol = Float32(0.1) #Tolerance level for difference between sigIpr and sigIsum
@@ -157,12 +157,12 @@ inflateObservedSigmas!(imageArray, hklList, changeInBfac, minFracCalc, applyBFac
 # getInitialAmplitudes!(hklList, atomDict, scatteringAngles, elementDict, tempFacDict)
 
 # Get initial amplitudes by method 2
-getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
+# getInitialAmplitudes!(hklList, f0SqrdDict, tempFacDict)
 
 # Get initial amplitudes by method 3
-# mtzDumpOutput = runMtzdump(sfFileLocation, Int32(2000))
-# refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
-# getInitialAmplitudes!(hklList, refAmpDict, scaleFac)
+mtzDumpOutput = runMtzdump(sfFileLocation, Int32(2000))
+refAmpDict, scaleFac = parseCTruncateMTZDumpOutput(mtzDumpOutput)
+getInitialAmplitudes!(hklList, refAmpDict)
 
 #End Section: Extract initial guess structure factor amplitudes
 ################################################################################
