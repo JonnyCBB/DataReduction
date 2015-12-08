@@ -21,7 +21,7 @@ Not sure of any more yet.
 -   It looks as if a better estimate of the scale factor and how it varies smoothly over image number should make the filtered/smoothed estimates more reliable (less "overfitted"). This requires 2 updates:
  1. Use the **BEST** curve to get estimates of the Scale and B factors.
  2.  Use a form of non-parametric regression to estimate the (smooth) changes of these factors.
--   Need to sort out a way that the algorithm knows how to manipulate the process covariance value during the filtering/smoothing cycles to converge quickly to the correct value.
+-   Need to sort out the convergence criteria for the filtering and smoothing cycles. **More importantly** I need to figure out what I need to restrain/constrain during cycles to avoid horridly overfitting to the data. I believe I need to restrain the gradient of the filtered/smoothed function. 
 -	Check to make sure the reflection multiplicity (epsilon factor) is correct
 -	Sort out expected intensities when sequence files aren't given.
 -	Sort out the atomic composition when NCS is present.
