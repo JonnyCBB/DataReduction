@@ -570,9 +570,10 @@ function parseCTruncateMTZDumpOutput(mtzDumpOutput::ASCIIString)
     firstRef::Bool = true
     hkl = Vector{Int16}(3)
     refLine::UInt8 = 0
-    refAmpDict = Dict{Vector{Int16},Float32}()
+    refAmpDict = Dict{Vector{Int16},Vector{Float32}}()
     scaleFac::Float32 = 0.0
-    scaledAmplitude::Float32 = 0.0
+    amplitude::Float32 = 0.0
+    sigAmp::Float32 = 0.0
     for line in mtzdumpOutputLines
         if contains(line, "LIST OF REFLECTIONS")
             searchReflections = true
@@ -583,8 +584,9 @@ function parseCTruncateMTZDumpOutput(mtzDumpOutput::ASCIIString)
             if isnumber(nonEmptyLine[1]) # Check the first non-whitespace string can be parsed as numeric (this only works for integers)
                 if length(nonEmptyLine) == numMtzColsFor1stRefLine #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
                     hkl = [parse(Int16,nonEmptyLine[1]), parse(Int16,nonEmptyLine[2]), parse(Int16,nonEmptyLine[3])]
-                    scaledAmplitude = parse(Float32,nonEmptyLine[4])
-                    refAmpDict[hkl] = scaledAmplitude
+                    amplitude = parse(Float32,nonEmptyLine[4])
+                    ampSig = parse(Float32,nonEmptyLine[5])
+                    refAmpDict[hkl] = [amplitude, ampSig]
                 else
                     #If the number of columns is not the same as the expected ones then this throws an error because the parser will fail in that case.
                     errMsg = @sprintf("The MTZ Dump output doesn't have %d columns for the reflection line.\nThis means the reflections in the file will not be parsed properly\nContact elspeth.garman@bioch.ox.ac.uk to sort out the MTZ Dump parser for your case.\n\n", numMtzColsFor1stRefLine)
@@ -595,7 +597,7 @@ function parseCTruncateMTZDumpOutput(mtzDumpOutput::ASCIIString)
                     if length(nonEmptyLine) == numMtzColsIntLineCTruncate #Check that the line is of a given length, otherwise we'll run into trouble with the parser.
                         refLine += 1
                         intensity = parse(Float32, nonEmptyLine[4])
-                        scaleFac = scaledAmplitude / sqrt(intensity)
+                        scaleFac = amplitude / sqrt(intensity)
                         firstRef = false
                     else
                         @printf("hkl: [%d, %d, %d]\n", hkl[1], hkl[2], hkl[3])
