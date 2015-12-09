@@ -47,22 +47,23 @@ L(x::Real) = exp(x/2) * ( (1-x)*besseli(0,-x/2) - x*besseli(1,-x/2) )
 """
 # Calculate mean of the Rician Distribution
 
-    meanRice(a::Float64, x::Float64)
+    meanRice(a::AbstractFloat, x::AbstractFloat)
 
-This function takes the rician parameters `a` and `σ` (both of `Float64` type) and returns the mean of the Rice distribution.
+This function takes the rician parameters `a` and `σ` (both of `AbstractFloat` type) and returns the mean of the Rice distribution.
 """
-meanRice(a::Float64, σ::Float64) = σ * √(π/2) * L(- (a^2)/(2σ^2) )
-meanRice(F::Float64, D::Float64, σ::Float64) = meanRice(D*F, σ)
+meanRice(a::AbstractFloat, σ::AbstractFloat) = σ * √(π/2) * L(- (a^2)/(2σ^2) )
+meanRice(F::AbstractFloat, D::AbstractFloat, σ::AbstractFloat) = meanRice(D*F, σ)
+meanRice(F, D::AbstractFloat, σ::AbstractFloat) = meanRice(F[1], D, σ)
 
 """
 # Calculate variance of the Rician Distribution
 
-    meanRice(a::Float64, x::Float64)
+    meanRice(a::AbstractFloat, x::AbstractFloat)
 
-This function takes the rician parameters `a` and `σ` (both of `Float64` type) and returns the variance of the Rice distribution.
+This function takes the rician parameters `a` and `σ` (both of `AbstractFloat` type) and returns the variance of the Rice distribution.
 """
-varRice(a::Float64, σ::Float64) = 2σ^2 + a^2 - meanRice(a, σ)^2
-varRice(F::Float64, D::Float64, σ::Float64) = varRice(D*F, σ)
+varRice(a::AbstractFloat, σ::AbstractFloat) = 2σ^2 + a^2 - meanRice(a, σ)^2
+varRice(F::AbstractFloat, D::AbstractFloat, σ::AbstractFloat) = varRice(D*F, σ)
 
 """
 # The Process Function
@@ -74,24 +75,27 @@ This is the process function for the Kalman Filter and describes how the mean of
 `D` is a vector of `Float64`'s that are the corresponding structure factor multipliers (Luzzati 1952) for each reflection. These are defined in Read 1990.
 `σ` is a vector of `Float64`'s that represent the standard deviations of the normally distributed structure factors (not the amplitudes).
 """
+function processFunction(amplitudes, D::Vector{Float64})
+    newAmplitudes = Vector{Float64}(length(amplitudes))
+    counter = 0
+    for F in amplitudes
+        counter += 1
+        newAmplitudes[counter] = D[counter] * F
+    end
+    return newAmplitudes
+end
+
 function processFunction(amplitudes, D::Vector{Float64}, σ::Vector{Float64})
     newAmplitudes = Vector{Float64}(length(amplitudes))
     counter = 0
     for F in amplitudes
         counter += 1
-        ########################################################################
-        #NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD
-        #OF A RICIAN DISTRIBUTION.
-        #newAmplitudes[counter] = meanRice(F, D[counter], σ[counter])
-        newAmplitudes[counter] = D[counter] * F
+        newAmplitudes[counter] = meanRice(F, D[counter], σ[counter])
     end
     return newAmplitudes
 end
-################################################################################
-#NEED TO SORT THIS OUT. I'VE HAD TO USE A GAUSSIAN DISTRIBUTION INSTEAD OF A
-#RICIAN DISTRIBUTION.
-#processFunction(F::Float64, D::Float64, σ::Float64) = meanRice(F, D, σ)
-processFunction(F, D::AbstractFloat, σ::AbstractFloat) = D * F
+processFunction(F, D::AbstractFloat, σ::AbstractFloat) = meanRice(F, D, σ)
+processFunction(F, D::AbstractFloat) = D * F
 
 """
 # The Observation Function

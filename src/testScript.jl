@@ -61,7 +61,7 @@ const α = 1e-3
 const β = 2.0
 const κ = 0.0
 
-const NUM_CYCLES = 100
+const NUM_CYCLES = 200
 const MIN_CYCLE_NUM = 5
 const MIN_SCALING_CYCLE_NUM = 3
 const USE_WEAK_REF_PRIOR = false
@@ -69,6 +69,7 @@ const USE_BAYESIAN_EST_VALUES_AS_FINAL = false
 const WEAK_AMP_THRESHOLD = 3.0
 const NUM_STD_FOR_INTEGRATION = 6.0
 const LOG_LIK_THRESHOLD = 1e-3
+const USE_RICE_ESTIMATE = true
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -283,7 +284,10 @@ for hkl in keys(hklList)
             end
             initialGuess = MvNormal(newStateVec, newStateCov)
             #initialGuess = smoothedState.state[1]
+        else
+            amplitudeStrength = mean(initialGuess)[1]/sqrt(cov(initialGuess)[1])
         end
+        println("Amplitude Strength: ", amplitudeStrength)
         ########################################################################
         #Section: Perform Filtering
         #-----------------------------------------------------------------------
@@ -295,19 +299,28 @@ for hkl in keys(hklList)
         loglik = 0.0
         for i in 1:size(y, 2)
             y_current = y[:, i]
+
             if scalingCycles
                 processVariance = abs(1.0 - D^2) * mean(initialGuess)[1]
             else
                 processVariance = abs(1.0 - D^2) * mean(initialGuess)[1]^2
             end
+
             if reflection.isCentric
                 σ = sqrt(2 * reflection.epsilon * processVariance)
             else
                 σ = sqrt(reflection.epsilon * processVariance)
             end
-            processFunction(state) = processFunction(state, D, σ)
+            if amplitudeStrength < WEAK_AMP_THRESHOLD && !scalingCycles && USE_RICE_ESTIMATE
+                processFunction(state) = processFunction(state, D, σ)
+                processVariance = varRice(mean(x_filtered[i])[1], D, σ)
+            else
+                processFunction(state) = processFunction(state, D)
+                processVariance = σ^2
+            end
+
             observationFunction(state) = observationFunction(state, scaleFactor)
-            m = AdditiveNonLinUKFSSM(processFunction, [processVarCoeff * σ^2]', observationFunction, [observationVarVec[i]]')
+            m = AdditiveNonLinUKFSSM(processFunction, [processVarCoeff * processVariance]', observationFunction, [observationVarVec[i]]')
             x_pred, sigma_points = StateSpace.predict(m, x_filtered[i], params)
             y_pred, P_xy = observe(m, x_pred, sigma_points, y_current)
             # if !any(isnan(y_current))
@@ -374,9 +387,15 @@ for hkl in keys(hklList)
         loglik = logpdf(observe(m, smooth_dist[end], calcSigmaPoints(smooth_dist[end], params), filtState.observations[:, end])[1], filtState.observations[:, end])
         for i in (n - 1):-1:1
             sp = calcSigmaPoints(filtState.state[i+1], params)
-            processFunction(state) = processFunction(state, D, σ)
+            if amplitudeStrength < WEAK_AMP_THRESHOLD && !scalingCycles && USE_RICE_ESTIMATE
+                processFunction(state) = processFunction(state, D, σ)
+                processVariance = varRice(mean(filtState.state[i+1])[1], D, σ)
+            else
+                processFunction(state) = processFunction(state, D)
+                processVariance = σ^2
+            end
             observationFunction(state) = observationFunction(state, scaleFactor)
-            m = AdditiveNonLinUKFSSM(processFunction, [processVarCoeff * σ^2]',
+            m = AdditiveNonLinUKFSSM(processFunction, [processVarCoeff * processVariance]',
                                        observationFunction, [observationVarVec[i]]')
             pred_state, cross_covariance = smoothedTimeUpdate(m, filtState.state[i+1], sp)
             smootherGain = cross_covariance * inv(cov(pred_state))
