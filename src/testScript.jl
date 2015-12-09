@@ -509,11 +509,20 @@ end
 #Section: Write HKL file with reflection information
 #-------------------------------------------------------------------------------
 hklFile = open("ReflectionFile_Merged.hkl", "w")
-write(hklFile, @sprintf("NREFlection= %d\n", length(hklList)))
+write(hklFile, @sprintf("Number of Reflections = %d\n", length(hklList)))
 if ANOMALOUS
-    write(hklFile, @sprintf("ANOMalous=%s\n","FALSe"))
+    write(hklFile, @sprintf("Anomalous data = %s\n","FALSe"))
 else
-    write(hklFile, @sprintf("ANOMalous=%s\n","TRUE"))
+    write(hklFile, @sprintf("Anomalous data = %s\n","TRUE"))
+end
+write(hklFile, @sprintf("Column Headers: H K L F SigF\n"))
+for hkl in keys(hklList)
+    reflection = hklList[hkl]
+    write(hklFile, @sprintf("%5d", hkl[1]))
+    write(hklFile, @sprintf("%5d", hkl[2]))
+    write(hklFile, @sprintf("%5d", hkl[3]))
+    write(hklFile, @sprintf("%10.3f", reflection.amplitude))
+    write(hklFile, @sprintf("%10.3f\n", reflection.amplitudeSig))
 end
 close(hklFile)
 #End Section: Write HKL file with reflection information
