@@ -21,7 +21,8 @@ Not sure of any more yet.
 -   It looks as if a better estimate of the scale factor and how it varies smoothly over image number should make the filtered/smoothed estimates more reliable (less "overfitted"). This requires 2 updates:
  1. Use the **BEST** curve to get estimates of the Scale and B factors.
  2.  Use a form of non-parametric regression to estimate the (smooth) changes of these factors.
--   Need to sort out the convergence criteria for the filtering and smoothing cycles. **More importantly** I need to figure out what I need to restrain/constrain during cycles to avoid horridly overfitting to the data. I believe I need to restrain the gradient of the filtered/smoothed function. 
+-   Need to sort out the convergence criteria for the filtering and smoothing cycles. **More importantly** I need to figure out what I need to restrain/constrain during cycles to avoid horridly overfitting to the data. I believe I need to restrain the gradient of the filtered/smoothed function.
+- Following from the previous point about convergence, I need to decide what to do with really weak reflections (essentially estimate as a zero amplitude value if the bayesian prior estimate is not used) because the  variance seems to increase with each cycle and shows no sign of converging. Initial thoughts are to take the measurement error and do variable transformation so that corresponds to the amplitude error. Then propagate the process error from the time point of the measurement back to the initial time. 
 -	Check to make sure the reflection multiplicity (epsilon factor) is correct
 -	Sort out expected intensities when sequence files aren't given.
 -	Sort out the atomic composition when NCS is present.
