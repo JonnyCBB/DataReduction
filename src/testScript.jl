@@ -64,12 +64,17 @@ const κ = 0.0
 const NUM_CYCLES = 200
 const MIN_CYCLE_NUM = 5
 const MIN_SCALING_CYCLE_NUM = 3
-const USE_WEAK_REF_PRIOR = false
+const MAX_SCALING_CYCLES = 100
+const USE_WEAK_REF_PRIOR = true
 const USE_BAYESIAN_EST_VALUES_AS_FINAL = false
 const WEAK_AMP_THRESHOLD = 3.0
 const NUM_STD_FOR_INTEGRATION = 6.0
 const LOG_LIK_THRESHOLD = 1e-3
 const USE_RICE_ESTIMATE = true
+
+################################################################################
+#Assertions
+@assert NUM_CYCLES > MAX_SCALING_CYCLES
 ################################################################################
 #Section: Create plot directory
 #-------------------------------------------------------------------------------
@@ -443,9 +448,12 @@ for hkl in keys(hklList)
         ########################################################################
         if iterNum > MIN_SCALING_CYCLE_NUM
             if scalingCycles
-                if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_SCALING_CYCLE_NUM]) < LOG_LIK_THRESHOLD
+                if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_SCALING_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum > MAX_SCALING_CYCLES
                     endScalingIter = iterNum
                     scalingCycles = false
+                    if iterNum > MAX_SCALING_CYCLES && abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_SCALING_CYCLE_NUM]) >= LOG_LIK_THRESHOLD
+                        println("Scaling cycles didn't converge.") #Need more helpful error statement here.
+                    end
                 end
             elseif iterNum > MIN_CYCLE_NUM + endScalingIter
                 if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum == NUM_CYCLES
