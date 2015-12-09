@@ -72,6 +72,7 @@ const NUM_STD_FOR_INTEGRATION = 6.0
 const LOG_LIK_THRESHOLD = 1e-3
 const USE_RICE_ESTIMATE = true
 
+const ANOMALOUS = false
 ################################################################################
 #Assertions
 @assert NUM_CYCLES > MAX_SCALING_CYCLES
@@ -197,8 +198,8 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
 
 for hkl in keys(hklList)
     hklCounter += 1
-    if hklCounter == 4
-        println("made it through a round :)")
+    if hklCounter == 1
+        println("Skipping the filtering loop.")
         break
     end
     reflection = hklList[hkl]
@@ -495,3 +496,25 @@ end
 
 #End Section: Iteration section treating reflections independently
 ################################################################################
+
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+
+################################################################################
+#Section: Write HKL file with reflection information
+#-------------------------------------------------------------------------------
+hklFile = open("ReflectionFile_Merged.hkl", "w")
+write(hklFile, @sprintf("NREFlection= %d\n", length(hklList)))
+if ANOMALOUS
+    write(hklFile, @sprintf("ANOMalous=%s\n","FALSe"))
+else
+    write(hklFile, @sprintf("ANOMalous=%s\n","TRUE"))
+end
+close(hklFile)
+#End Section: Write HKL file with reflection information
+#-------------------------------------------------------------------------------
