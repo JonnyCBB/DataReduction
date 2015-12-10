@@ -515,6 +515,9 @@ end
 ################################################################################
 #Section: Write HKL file with reflection information
 #-------------------------------------------------------------------------------
+#THIS STILL NEEDS TO BE CORRECTED FOR THE SITUATION WHEN THE PROGRAM IS EXTENDED
+#TO HANDLE ANOMALOUS DATA.
+
 hklFile = open(HKL_FILENAME, "w")
 write(hklFile, @sprintf("Number of Reflections = %d\n", length(hklList)))
 if ANOMALOUS
@@ -522,12 +525,18 @@ if ANOMALOUS
 else
     write(hklFile, @sprintf("Anomalous data = %s\n","TRUE"))
 end
-write(hklFile, @sprintf("Column Headers: H K L F SigF\n"))
+write(hklFile, @sprintf("Column Headers: H K L F SigF DANO SIGDANO F(+) SIGF(+) F(-) SIGF(-)\n"))
 for hkl in keys(hklList)
     reflection = hklList[hkl]
     write(hklFile, @sprintf("%5d", hkl[1]))
     write(hklFile, @sprintf("%5d", hkl[2]))
     write(hklFile, @sprintf("%5d", hkl[3]))
+    write(hklFile, @sprintf("%10.3f", reflection.amplitude))
+    write(hklFile, @sprintf("%10.3f", reflection.amplitudeSig))
+    write(hklFile, @sprintf("%10.3f", 0.0))
+    write(hklFile, @sprintf("%10.3f", 0.0))
+    write(hklFile, @sprintf("%10.3f", reflection.amplitude))
+    write(hklFile, @sprintf("%10.3f", reflection.amplitudeSig))
     write(hklFile, @sprintf("%10.3f", reflection.amplitude))
     write(hklFile, @sprintf("%10.3f\n", reflection.amplitudeSig))
 end
@@ -555,9 +564,9 @@ close(f2mtzInputFile)
 #Section: Run f2mtz
 #-------------------------------------------------------------------------------
 #import python function to run f2mtz. (This is horrible hack because I couldn't work out how to do it in Julia)
-@pyimport RunSystemCommand as rsc
+@pyimport RunSystemCommand as runsys
 
 #Run f2mtz
-rsc.run_system_command(@sprintf("f2mtz HKLIN %s HKLOUT %s < %s", HKL_FILENAME, MTZOUT_FILENAME, F2MTZ_INPUT_FILENAME))
+runsys.run_system_command(@sprintf("f2mtz HKLIN %s HKLOUT %s < %s", HKL_FILENAME, MTZOUT_FILENAME, F2MTZ_INPUT_FILENAME))
 #End Section: Run f2mtz
 ################################################################################
