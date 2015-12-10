@@ -1,9 +1,7 @@
 ### Next steps:
 
-- Need to sort out the initial covariance matrix. I think the current implementation gives variances that are too high to give anything useful.
-- Implement smoother
-- Calculate the log likelihood value and the metric value for the user.
--	write tests for input parser/Create structure for Reflection/SpaceGroup/Resbin types.
+-   Need to write code to omit reflections that have low "fraction calc" values.
+-	Write tests for input parser/Create structure for Reflection/SpaceGroup/Resbin types.
 
 ### Inputs still to add:
 
