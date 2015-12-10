@@ -555,6 +555,7 @@ write(f2mtzInputFile, @sprintf("CELL %.2f %.2f %.2f %.2f %.2f %.2f\n", unitcell.
 write(f2mtzInputFile, @sprintf("SYMMETRY %d\n", spacegroup.number))
 write(f2mtzInputFile, @sprintf("LABOUT H K L F_mean SIGF_mean DANO SIGDANO F(+) SIGF(+) F(-) SIGF(-)\n"))
 write(f2mtzInputFile, @sprintf("CTYPOUT H H H F Q D Q G L G L\n"))
+write(f2mtzInputFile, @sprintf("FORMAT '(3F5.0,8F10.3)'\n"))
 write(f2mtzInputFile, @sprintf("END\n"))
 close(f2mtzInputFile)
 #End Section: Write f2mtz input file
@@ -569,4 +570,19 @@ close(f2mtzInputFile)
 #Run f2mtz
 runsys.run_system_command(@sprintf("f2mtz HKLIN %s HKLOUT %s < %s", HKL_FILENAME, MTZOUT_FILENAME, F2MTZ_INPUT_FILENAME))
 #End Section: Run f2mtz
+################################################################################
+
+################################################################################
+#Section: Delete f2mtz related input files
+#-------------------------------------------------------------------------------
+#If the input files exist (it should) then delete it because we don't need it
+#anymore
+if isfile(HKL_FILENAME)
+    rm(HKL_FILENAME)
+end
+if isfile(F2MTZ_INPUT_FILENAME)
+    rm(F2MTZ_INPUT_FILENAME)
+end
+
+#End Section: Delete f2mtz related input files
 ################################################################################
