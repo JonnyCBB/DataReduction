@@ -53,10 +53,10 @@ function runMtzdump(mtzFile::ASCIIString, numRef::Int32=Float32(20))
         unshift!(PyVector(pyimport("sys")["path"]), pwd())
     end
     #import python function to run MTZ dump. (This is horrible hack because I couldn't work out how to do it in Julia)
-    @pyimport getMtzdumpOutput as getmtz
+    @pyimport RunSystemCommand as rsc
 
     #Run MTZDump and return the output
-    mtzdumpOutput = getmtz.runMtzdump(@sprintf("mtzdump hklin %s < %s", mtzFile, inputParams.inputFilename))
+    mtzdumpOutput = rsc.run_system_command(@sprintf("mtzdump hklin %s < %s", mtzFile, inputParams.inputFilename))
 
     #If the input file exists (it should) then delete it because we don't need it anymore
     if isfile(inputParams.inputFilename)
