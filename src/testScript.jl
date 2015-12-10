@@ -73,6 +73,10 @@ const LOG_LIK_THRESHOLD = 1e-3
 const USE_RICE_ESTIMATE = true
 
 const ANOMALOUS = false
+
+const PROJECT_NAME = "Filtering_Test"
+const CRYSTAL_NAME = "Insulin_0259"
+const DATASET_NAME = "Insulin_0259"
 ################################################################################
 #Assertions
 @assert NUM_CYCLES > MAX_SCALING_CYCLES
@@ -527,3 +531,19 @@ end
 close(hklFile)
 #End Section: Write HKL file with reflection information
 #-------------------------------------------------------------------------------
+
+################################################################################
+#Section: Write f2mtz input file
+#-------------------------------------------------------------------------------
+f2mtzInputFile = open("f2mtzInput.dat", "w")
+write(f2mtzInputFile, @sprintf("SKIP 3\n"))
+write(f2mtzInputFile, @sprintf("TITLE HKL to MTZ\n"))
+write(f2mtzInputFile, @sprintf("NAME PROJECT %s CRYSTAL %s DATASET %s\n", PROJECT_NAME, CRYSTAL_NAME, DATASET_NAME))
+write(f2mtzInputFile, @sprintf("CELL %.2f %.2f %.2f %.2f %.2f %.2f\n", unitcell.a, unitcell.b, unitcell.c, unitcell.α, unitcell.β, unitcell.γ))
+write(f2mtzInputFile, @sprintf("SYMMETRY %d\n", spacegroup.number))
+write(f2mtzInputFile, @sprintf("LABOUT H K L F_mean SIGF_mean DANO SIGDANO F(+) SIGF(+) F(-) SIGF(-)\n"))
+write(f2mtzInputFile, @sprintf("CTYPOUT H H H F Q D Q G L G L\n"))
+write(f2mtzInputFile, @sprintf("END\n"))
+close(f2mtzInputFile)
+#End Section: Write f2mtz input file
+################################################################################
