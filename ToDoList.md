@@ -22,7 +22,7 @@ Not sure of any more yet.
  1. Use the **BEST** curve to get estimates of the Scale and B factors.
  2.  Use a form of non-parametric regression to estimate the (smooth) changes of these factors.
 -   Need to sort out the convergence criteria for the filtering and smoothing cycles. **More importantly** I need to figure out what I need to restrain/constrain during cycles to avoid horridly overfitting to the data. I believe I need to restrain the gradient of the filtered/smoothed function.
-- Following from the previous point about convergence, I need to decide what to do with really weak reflections (essentially estimate as a zero amplitude value if the bayesian prior estimate is not used) because the  variance seems to increase with each cycle and shows no sign of converging. Initial thoughts are to take the measurement error and do variable transformation so that corresponds to the amplitude error. Then propagate the process error from the time point of the measurement back to the initial time. 
+- Following from the previous point about convergence, I need to decide what to do with really weak reflections (essentially estimate as a zero amplitude value if the bayesian prior estimate is not used) because the  variance seems to increase with each cycle and shows no sign of converging. Initial thoughts are to take the measurement error and do variable transformation so that corresponds to the amplitude error. Then propagate the process error from the time point of the measurement back to the initial time.
 -	Check to make sure the reflection multiplicity (epsilon factor) is correct
 -	Sort out expected intensities when sequence files aren't given.
 -	Sort out the atomic composition when NCS is present.
@@ -32,6 +32,7 @@ Not sure of any more yet.
 -   Properly comment the code.
 -   Actually output log information to the console so that the user knows what's going on.
 - Sort out rounding of values when sorting out the image numbers during the MTZ file parsing. I've left a "*****" comment where this needs to be sorted. THIS IS A BIG PROBLEM AND WILL LIKELY LEAD TO ERRORS FOR THE FIRST PROPER RUN. I also need to write an error statement that will catch this later on so we get an informative message about it.
+- Consider removing observations of reflections that have a low calculated fraction. Does this affect R values?
 
 ### Things that could be done at some point
 
