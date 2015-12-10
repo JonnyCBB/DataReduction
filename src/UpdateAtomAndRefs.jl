@@ -190,7 +190,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                                 for imageNum in refObservation.imageNums
                                     @printf("image number: %d. Rotation start and stop: %.2f deg - %.2f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
                                 end
-                                @printf("The observation centroid was calculated to be on image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
+                                @printf("The observation centroid was allocated to image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
                             else
                                 duplicateObservation = diffractionImage.observationList[hkl]
                                 #If the fraction of the reflection calculated by
