@@ -136,6 +136,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
             #phi angles in place of what should be true path lengths in reciprocal
             #space.
             if !foundCentroidImage #Check if the observation has been allocated to an image
+                allocatedToImage = false
                 imageNums = sort(refObservation.imageNums) #Get the image numbers in order
                 #Check whether the image was only partially observed on the first
                 #image or whether it was partially observed on the first image.
@@ -148,6 +149,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                     phiImage = (lastImageOfObs.rotAngleStart + lastImageOfObs.rotAngleStop)/2
                     phiEdge = imageArray[1].rotAngleStart
                     spherePenetration = abs(phiImage - phiEdge)
+                    allocatedToImage = true
                 elseif imageNums[end] == length(imageArray)
                     imageArray[end].observationList[hkl] = refObservation #Add reflection to the reflection list for the last image
 
@@ -157,6 +159,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                     phiImage = (firstImageOfObs.rotAngleStart + firstImageOfObs.rotAngleStop)/2
                     phiEdge = imageArray[end].rotAngleStop
                     spherePenetration = abs(phiImage - phiEdge)
+                    allocatedToImage = true
                 else
                     #If the observation wasn't observed on either the first or last
                     #image and wasn't allocated any other image in between then
@@ -180,6 +183,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                             #reflection will be the average of the symmetry equivalents.
                             if !haskey(diffractionImage.observationList, hkl)
                                 diffractionImage.observationList[hkl] = refObservation
+                                allocatedToImage = true
 
                                 println("************************WARNING************************")
                                 @printf("The rotation centroid for observation %d of reflection (%d,%d,%d) was calculated (by the integration software) to be outside of an image on which the observation was observed.\nPlease check that the rotation centroid of this reflection is a valid number.\nThe centroid calculated was %.2f. (Note: The estimated fraction of the observation that was measured is: %.2f).\nThe images for which the observation was measured were:\n",obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
@@ -212,6 +216,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
 
                                     #Create the new combined observation object.
                                     diffractionImage.observationList[hkl] = ReflectionObservation(newRotCentroid, newFractionCalc, newMISYM, newIntensity, newSigma, newImageNums, newImageIntensities)
+                                    allocatedToImage = true
 
                                     println("************************WARNING************************")
                                     @printf("The rotation centroid for observation %d of reflection (%d,%d,%d) was calculated (by the integration software) to be outside of an image on which the observation was observed.\nPlease check that the rotation centroid of this reflection is a valid number.\nThe centroid calculated was %.2f. (Note: The estimated fraction of the observation that was measured is: %.2f).\nThe images for which the observation was measured were:\n",obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
@@ -226,8 +231,16 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                     end
                 end
 
-                #Only try to scale up intensity values if they are postive.
-                if estimatePartialIntensity && refObservation.intensity > 0
+                #If the observation can't be allocated to an image despite having a measured fraction above the threshold then something is wrong (I don't know what but something is) and it needs to be sorted.
+                if !allocatedToImage && refObservation >= minFracCalc
+                    errMsg = @sprintf("Observation %d of reflection (%d,%d,%d) couldn't be allocated to an image.\nThe centroid for this reflection was %.2f and the fraction calculated was %.2f.\nContact elspeth.garman@bioch.ox.ac.uk so this problem can be sorted.\n", obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
+                    error(errMsg)
+                end
+
+                #Only try to scale up intensity values if they are postive, have
+                #been allocated to an image and the fraction calculated is below
+                #the threshold.
+                if estimatePartialIntensity && refObservation.intensity > 0 && allocatedToImage && diffractionImage.observationList[hkl].fractionCalc < minFracCalc
                     sphereDiameter = 2*abs(refObservation.rotCentroid - phiImage) #estimate the diameter of the reciprocal lattice sphere.
                     spherePathFrac = spherePenetration/sphereDiameter #calculate partiality fraction
                     intensityFraction = volumeRatio(spherePathFrac) #estimate the fraction of the intensity that was measured
