@@ -74,9 +74,12 @@ const USE_RICE_ESTIMATE = true
 
 const ANOMALOUS = false
 
+const HKL_FILENAME = "ReflectionFile_Merged.hkl"
+const F2MTZ_INPUT_FILENAME = "f2mtzInput.dat"
 const PROJECT_NAME = "Filtering_Test"
 const CRYSTAL_NAME = "Insulin_0259"
 const DATASET_NAME = "Insulin_0259"
+const MTZOUT_FILENAME = "Reduction.mtz"
 ################################################################################
 #Assertions
 @assert NUM_CYCLES > MAX_SCALING_CYCLES
@@ -512,7 +515,7 @@ end
 ################################################################################
 #Section: Write HKL file with reflection information
 #-------------------------------------------------------------------------------
-hklFile = open("ReflectionFile_Merged.hkl", "w")
+hklFile = open(HKL_FILENAME, "w")
 write(hklFile, @sprintf("Number of Reflections = %d\n", length(hklList)))
 if ANOMALOUS
     write(hklFile, @sprintf("Anomalous data = %s\n","FALSe"))
@@ -535,7 +538,7 @@ close(hklFile)
 ################################################################################
 #Section: Write f2mtz input file
 #-------------------------------------------------------------------------------
-f2mtzInputFile = open("f2mtzInput.dat", "w")
+f2mtzInputFile = open(F2MTZ_INPUT_FILENAME, "w")
 write(f2mtzInputFile, @sprintf("SKIP 3\n"))
 write(f2mtzInputFile, @sprintf("TITLE HKL to MTZ\n"))
 write(f2mtzInputFile, @sprintf("NAME PROJECT %s CRYSTAL %s DATASET %s\n", PROJECT_NAME, CRYSTAL_NAME, DATASET_NAME))
@@ -546,4 +549,15 @@ write(f2mtzInputFile, @sprintf("CTYPOUT H H H F Q D Q G L G L\n"))
 write(f2mtzInputFile, @sprintf("END\n"))
 close(f2mtzInputFile)
 #End Section: Write f2mtz input file
+################################################################################
+
+################################################################################
+#Section: Run f2mtz
+#-------------------------------------------------------------------------------
+#import python function to run f2mtz. (This is horrible hack because I couldn't work out how to do it in Julia)
+@pyimport RunSystemCommand as rsc
+
+#Run f2mtz
+rsc.run_system_command(@sprintf("f2mtz HKLIN %s HKLOUT %s < %s", HKL_FILENAME, MTZOUT_FILENAME, F2MTZ_INPUT_FILENAME))
+#End Section: Run f2mtz
 ################################################################################
