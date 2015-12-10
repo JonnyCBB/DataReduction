@@ -47,7 +47,7 @@ const minFracCalc = Float32(0.95)
 const applyBFacTof0 = true
 
 const kdeStep = Float32(0.0001)
-const keepPercentageScaleData = Float32(0.9)
+const keepPercentageScaleData = Float32(0.95)
 
 const outputImageDir = "plots"
 
@@ -80,6 +80,7 @@ const PROJECT_NAME = "Filtering_Test"
 const CRYSTAL_NAME = "Insulin_0259"
 const DATASET_NAME = "Insulin_0259"
 const MTZOUT_FILENAME = "Reduction.mtz"
+const SORTMTZ_INPUT_FILENAME ="SortmtzInput.txt"
 ################################################################################
 #Assertions
 @assert NUM_CYCLES > MAX_SCALING_CYCLES
@@ -562,21 +563,18 @@ close(f2mtzInputFile)
 ################################################################################
 
 ################################################################################
-#Section: Run f2mtz
+#Section: Run F2MTZ
 #-------------------------------------------------------------------------------
 #import python function to run f2mtz. (This is horrible hack because I couldn't work out how to do it in Julia)
 @pyimport RunSystemCommand as runsys
 
-#Run f2mtz
-runsys.run_system_command(@sprintf("f2mtz HKLIN %s HKLOUT %s < %s", HKL_FILENAME, MTZOUT_FILENAME, F2MTZ_INPUT_FILENAME))
-#End Section: Run f2mtz
-################################################################################
+#Create temporary filename for the unsorted mtz file
+f2mtzOutFilename = @sprintf("%s_unsorted.mtz", split(MTZOUT_FILENAME,".")[1])
 
-################################################################################
-#Section: Delete f2mtz related input files
-#-------------------------------------------------------------------------------
-#If the input files exist (it should) then delete it because we don't need it
-#anymore
+#Run f2mtz
+runsys.run_system_command(@sprintf("f2mtz HKLIN %s HKLOUT %s < %s", HKL_FILENAME, f2mtzOutFilename, F2MTZ_INPUT_FILENAME))
+
+#Delete f2mtz input files
 if isfile(HKL_FILENAME)
     rm(HKL_FILENAME)
 end
@@ -584,5 +582,27 @@ if isfile(F2MTZ_INPUT_FILENAME)
     rm(F2MTZ_INPUT_FILENAME)
 end
 
-#End Section: Delete f2mtz related input files
+#End Section: Run F2MTZ
+################################################################################
+
+################################################################################
+#Section: Run SORTMTZ
+#-------------------------------------------------------------------------------
+#Create input file for SORTMTZ
+sortmtzInputFile = open(SORTMTZ_INPUT_FILENAME, "w")
+write(sortmtzInputFile, "H K L\n")
+close(sortmtzInputFile)
+
+#Run SORTMTZ
+runsys.run_system_command(@sprintf("sortmtz HKLIN %s HKLOUT %s < %s", f2mtzOutFilename, MTZOUT_FILENAME, SORTMTZ_INPUT_FILENAME))
+
+#Delete unused files
+if isfile(SORTMTZ_INPUT_FILENAME)
+    rm(SORTMTZ_INPUT_FILENAME)
+end
+
+if isfile(f2mtzOutFilename)
+    rm(f2mtzOutFilename)
+end
+#End Section: Run SORTMTZ
 ################################################################################
