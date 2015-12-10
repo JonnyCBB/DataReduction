@@ -1,7 +1,6 @@
 ### Next steps:
 
 -   Need to write code to omit reflections that have low "fraction calc" values.
--   Check epsilon and centric/accentric calculations.
 -   Check observation information is updated correctly.
 -	Write tests for input parser/Create structure for Reflection/SpaceGroup/Resbin types.
 
