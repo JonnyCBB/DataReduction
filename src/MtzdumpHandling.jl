@@ -56,8 +56,11 @@ function runMtzdump(mtzFile::ASCIIString, numRef::Int32=Float32(20))
     @pyimport RunSystemCommand as runsys
 
     #Run MTZDump and return the output
+    @printf("Running MTZ dump...\n")
+    tic()
     mtzdumpOutput = runsys.run_system_command(@sprintf("mtzdump hklin %s < %s", mtzFile, inputParams.inputFilename))
-
+    @printf("Finished running MTZ dump: ")
+    toc()
     #If the input file exists (it should) then delete it because we don't need it anymore
     if isfile(inputParams.inputFilename)
         rm(inputParams.inputFilename)
