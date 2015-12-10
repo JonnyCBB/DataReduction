@@ -48,13 +48,13 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
             #Section: Add observations to images - Fully observed reflections
             #-----------------------------------------------------------------------
             #In this section we search for the image on which the current
-            #observation was "seen". This is determined by the image which contains
-            #the rotation centroid of the reflection.
-            foundCentroidImage = false #Check whether an image containing the centroid of the reflection has been found.
+            #observation was "seen". This is determined by the image which
+            #containsvthe rotation centroid of the reflection.
+            foundCentroidImage = false # reflection initially hasn't been allocated to an image.
             for imageNum in refObservation.imageNums #loop through the images
                 if imageNum > length(imageArray)
                     println(hkl)
-                    error("Bounds exceeded")
+                    error("Image number exceeds image array bounds")
                 end
                 diffractionImage = imageArray[imageNum]
                 if diffractionImage.rotAngleStart <= refObservation.rotCentroid < diffractionImage.rotAngleStop
@@ -71,7 +71,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                         #If the fraction of the reflection calculated by the integration software is above a certain
                         #amount then combine the data for the multiple observations by performing weigthed averages
                         #of the corresponding data.
-                        if duplicateObservation.fractionCalc >= minFracCalc
+                        if refObservation.fractionCalc >= minFracCalc
                             newIntensity = (duplicateObservation.fractionCalc * duplicateObservation.intensity + refObservation.fractionCalc * refObservation.intensity)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
 
                             newSigma = sqrt(duplicateObservation.fractionCalc^2 * duplicateObservation.sigI^2 + refObservation.fractionCalc^2 * refObservation.sigI^2/(duplicateObservation.fractionCalc^2 + refObservation.fractionCalc^2))
@@ -93,7 +93,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                     end
                     foundCentroidImage = true
                     break
-                elseif numPartials == 1
+                elseif numPartials == -1 #This condition should never be fulfilled I'll delete it once I'm happy that the other code works as expected.
                     if imageNum != 1 && imageNum != length(imageArray)
                         diffractionImage.observationList[hkl] = refObservation
                         foundCentroidImage = true
@@ -147,12 +147,67 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                     #there is a problem. It could be a problem with the input data
                     #or with the current program. Not sure which so we'll alert the
                     #user with a warning message.
-                    println("************************WARNING************************")
-                    @printf("Observation %d of reflection (%d,%d,%d) could not be allocated to an image\nPlease check that the rotation centroid of this reflection is a valid number.\nThe centroid calculated was %.3f.\nThe images checked to determine image for the centroid were:\n",obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid)
-                    for imageNum in refObservation.imageNums
-                        @printf("image number: %d. Rotation Start and stop: %.3f deg - %.3f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
+                    #What we'll do here is just allocate it to the image
+                    #corresponding to the calculated reflection centroid.
+                    imageCounter = 0
+                    for diffractionImage in imageArray
+                        imageCounter += 1
+                        ########################################################
+                        #THIS BLOCK OF CODE IS DUPLICATED FROM THE SECTION ABOVE
+                        #THIS SHOULD BE WRITTEN AS A SEPARATE FUNCTION.
+                        if diffractionImage.rotAngleStart <= refObservation.rotCentroid < diffractionImage.rotAngleStop
+                            #Check to see if the current image already has an observation of a given reflection.
+                            #If the reflection hasn't been observed on the diffraction image before then we can
+                            #simply add the reflection to the list. If the reflection has already an observation on
+                            #that image (e.g. a symmetry equivalent) then we can assume that they should have the same
+                            #true intensity but they differ due to measurement error. Therefore the intensity of the
+                            #reflection will be the average of the symmetry equivalents.
+                            if !haskey(diffractionImage.observationList, hkl)
+                                diffractionImage.observationList[hkl] = refObservation
+
+                                println("************************WARNING************************")
+                                @printf("The rotation centroid for observation %d of reflection (%d,%d,%d) was calculated (by the integration software) to be outside of an image on which the observation was observed.\nPlease check that the rotation centroid of this reflection is a valid number.\nThe centroid calculated was %.2f. (Note: The estimated fraction of the observation that was measured is: %.2f).\nThe images for which the observation was measured were:\n",obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
+                                for imageNum in refObservation.imageNums
+                                    @printf("image number: %d. Rotation start and stop: %.2f deg - %.2f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
+                                end
+                                @printf("The observation centroid was calculated to be on image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
+                            else
+                                duplicateObservation = diffractionImage.observationList[hkl]
+                                #If the fraction of the reflection calculated by
+                                #the integration software is above a certain
+                                #threshold then combine the data for the multiple
+                                #observations by performing weigthed averages of
+                                # the corresponding data.
+                                if refObservation.fractionCalc >= minFracCalc
+                                    newIntensity = (duplicateObservation.fractionCalc * duplicateObservation.intensity + refObservation.fractionCalc * refObservation.intensity)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+
+                                    newSigma = sqrt(duplicateObservation.fractionCalc^2 * duplicateObservation.sigI^2 + refObservation.fractionCalc^2 * refObservation.sigI^2/(duplicateObservation.fractionCalc^2 + refObservation.fractionCalc^2))
+
+                                    newImageNums = [duplicateObservation.imageNums; refObservation.imageNums]
+                                    newImageIntensities = [duplicateObservation.imageIntensities; refObservation.imageIntensities]
+                                    newFractionCalc = (duplicateObservation.fractionCalc + refObservation.fractionCalc)/2
+
+                                    newRotCentroid = (duplicateObservation.fractionCalc * duplicateObservation.rotCentroid + refObservation.fractionCalc * refObservation.rotCentroid)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+
+                                    ####################################################
+                                    #THE MYISYM SHOULD BE SORTED OUT!!!
+                                    ####################################################
+                                    newMISYM = duplicateObservation.misym
+
+                                    #Create the new combined observation object.
+                                    diffractionImage.observationList[hkl] = ReflectionObservation(newRotCentroid, newFractionCalc, newMISYM, newIntensity, newSigma, newImageNums, newImageIntensities)
+
+                                    println("************************WARNING************************")
+                                    @printf("The rotation centroid for observation %d of reflection (%d,%d,%d) was calculated (by the integration software) to be outside of an image on which the observation was observed.\nPlease check that the rotation centroid of this reflection is a valid number.\nThe centroid calculated was %.2f. (Note: The estimated fraction of the observation that was measured is: %.2f).\nThe images for which the observation was measured were:\n",obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
+                                    for imageNum in refObservation.imageNums
+                                        @printf("image number: %d. Rotation start and stop: %.2f deg - %.2f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
+                                    end
+                                    @printf("The observation centroid was calculated to be on image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
+                                end
+                            end
+                            break
+                        end
                     end
-                    @printf("Contact elspeth.garman@bioch.ox.ac.uk to sort out the MTZ Dump parser.\n\n")
                 end
 
                 #Only try to scale up intensity values if they are postive.
