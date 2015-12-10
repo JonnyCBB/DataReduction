@@ -25,6 +25,22 @@ end
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
+#This p(q) function is from Rossman et al. 1979. My volumeRatio function is an
+#exact volume ratio for the partial reflection. However if you plot these
+#functions it turns out that they pretty much overlap so they're pretty much
+#equivalent for argument values between 0 - 1
+p(q) = 3q^2 - 2q^3
+function volumeRatio(penetrationDepth::Float32, sphereDiameter::Float32)
+    d = sphereDiameter
+    h = penetrationDepth
+    ratio = 8 * h^2 * ((3/2)*d - h)/(4 * d^3)
+    return ratio
+end
+volumeRatio(penetrationFraction::Float32) = volumeRatio(penetrationFraction, Float32(1.0))
+
+################################################################################
+#NEED TO ADD METHOD INFORMATION
+################################################################################
 function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, imageArray::Vector{DiffractionImage}, estimatePartialIntensity::Bool=true)
     for hkl in keys(hklList)
         reflection = hklList[hkl]
