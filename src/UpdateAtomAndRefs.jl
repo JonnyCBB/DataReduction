@@ -223,16 +223,28 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                                     for imageNum in refObservation.imageNums
                                         @printf("image number: %d. Rotation start and stop: %.2f deg - %.2f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
                                     end
-                                    @printf("The observation centroid was calculated to be on image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
+                                    @printf("The observation centroid was allocated to image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
                                 end
                             end
                             break
                         end
                     end
+                    if imageNums[end] < imageCounter
+                        phiEdge = imageArray[imageNums[end]].rotAngleStop
+                        phiImage = (imageArray[imageNums[1]].rotAngleStart + imageArray[imageNums[1]].rotAngleStop)/2
+                        spherePenetration = abs(phiImage - phiEdge)
+                    elseif imageNums[1] > imageCounter
+                        phiEdge = imageArray[imageNums[1]].rotAngleStart
+                        phiImage = (imageArray[imageNums[end]].rotAngleStart + imageArray[imageNums[end]].rotAngleStop)/2
+                        spherePenetration = abs(phiImage - phiEdge)
+                    else
+                        errMsg = @sprintf("This means that the reflection was observed on the image which coincides with it's centroid, yet hasn't already been allocated an image.\nIf you're seeing this error message then something is VERY wrong with the code and you should contact elspeth.garman@bioch.ox.ac.uk ASAP this problem can be sorted.")
+                        error(errMsg)
+                    end
                 end
 
                 #If the observation can't be allocated to an image despite having a measured fraction above the threshold then something is wrong (I don't know what but something is) and it needs to be sorted.
-                if !allocatedToImage && refObservation >= minFracCalc
+                if !allocatedToImage && refObservation.fractionCalc >= minFracCalc
                     errMsg = @sprintf("Observation %d of reflection (%d,%d,%d) couldn't be allocated to an image.\nThe centroid for this reflection was %.2f and the fraction calculated was %.2f.\nContact elspeth.garman@bioch.ox.ac.uk so this problem can be sorted.\n", obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
                     error(errMsg)
                 end
@@ -240,7 +252,7 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                 #Only try to scale up intensity values if they are postive, have
                 #been allocated to an image and the fraction calculated is below
                 #the threshold.
-                if estimatePartialIntensity && refObservation.intensity > 0 && allocatedToImage && diffractionImage.observationList[hkl].fractionCalc < minFracCalc
+                if estimatePartialIntensity && refObservation.intensity > 0 && allocatedToImage
                     sphereDiameter = 2*abs(refObservation.rotCentroid - phiImage) #estimate the diameter of the reciprocal lattice sphere.
                     spherePathFrac = spherePenetration/sphereDiameter #calculate partiality fraction
                     intensityFraction = volumeRatio(spherePathFrac) #estimate the fraction of the intensity that was measured
