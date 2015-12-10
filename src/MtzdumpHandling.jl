@@ -59,7 +59,7 @@ function runMtzdump(mtzFile::ASCIIString, numRef::Int32=Float32(20))
     @printf("Running MTZ dump...\n")
     tic()
     mtzdumpOutput = runsys.run_system_command(@sprintf("mtzdump hklin %s < %s", mtzFile, inputParams.inputFilename))
-    @printf("Finished running MTZ dump: ")
+    @printf("Finished running MTZ dump - ")
     toc()
     #If the input file exists (it should) then delete it because we don't need it anymore
     if isfile(inputParams.inputFilename)
@@ -126,19 +126,18 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
     symOpNumber::UInt8 = 0
     searchCellDims::Bool = false
     searchReflections::Bool = false
-    fileStatsLines::Bool = false
-    colNumH::UInt8 = 0
-    colNumK::UInt8 = 0
-    colNumL::UInt8 = 0
-    colNumMIsym::UInt8 = 0
-    colNumBatch::UInt8 = 0
-    colNumIsum::UInt8 = 0
-    colNumSigIsum::UInt8 = 0
-    colNumIpr::UInt8 = 0
-    colNumSigIpr::UInt8 = 0
-    colNumFracCalc::UInt8 = 0
-    colNumRot::UInt8 = 0
-    colNumLP::UInt8 = 0
+    colNumH::UInt8 = 1
+    colNumK::UInt8 = 2
+    colNumL::UInt8 = 3
+    colNumMIsym::UInt8 = 4
+    colNumBatch::UInt8 = 5
+    colNumIsum::UInt8 = 6
+    colNumSigIsum::UInt8 = 7
+    colNumIpr::UInt8 = 8
+    colNumSigIpr::UInt8 = 9
+    colNumFracCalc::UInt8 = 10
+    colNumRot::UInt8 = 13
+    colNumLP::UInt8 = 15
     refLine::UInt8 = 0
     hkl = Vector{Int16}(3)
     origHKL = Vector{Int16}(3)
@@ -271,59 +270,6 @@ function parseMosflmMTZDumpOutput(mtzDumpOutput::ASCIIString, imageOsc::Float32=
         #End of Section: Parse batch/image phi angle information
         ############################################################################
 
-
-        ############################################################################
-        # Section: Determine column numbers to obtain correct Reflection information
-        #---------------------------------------------------------------------------
-        #In this section we extract the column numbers for which the information
-        #corresponding for the column label can be found in the MTZ file.
-        #This information can be found in the section titled "OVERALL FILE
-        #STATISTICS" in the MTZ Dump output and so if we see this line then we set
-        #the fileStatsLines (boolean) variable to 'true' to tell the program that
-        #we should start looking for the column label lines.
-        if contains(line, "OVERALL FILE STATISTICS")
-            fileStatsLines = true
-        end
-
-        #When the program is ready to look for the lines containing the column
-        #numbers for the corresponding column labels it checks to make sure that the
-        #first non whitespace character is a number. If so then we know that this
-        #line should tell us the column number for the column label. The column
-        #label is always the last non-whitespace block, whereas the corresponding
-        #column number is always the first.
-        if !isempty(strip(line)) && fileStatsLines # Check that the line isn't empty and that we should be looking for column labels
-            nonEmptyLine = split(line) #split the split by whitespace so we have an array containing Substring objects
-            if ismatch(r"[0-9]",convert(ASCIIString, nonEmptyLine[1])) # Check that the first character of the line is numeric
-                columnLabel = convert(ASCIIString, nonEmptyLine[end]) #Extract the column label
-                #The following code checks the type of the column label and assigns
-                #the corresponding column number
-                if "H" == columnLabel
-                    colNumH = parse(UInt8, nonEmptyLine[1])
-                elseif "K" == columnLabel
-                    colNumK = parse(UInt8, nonEmptyLine[1])
-                elseif "L" == columnLabel
-                    colNumL = parse(UInt8, nonEmptyLine[1])
-                elseif "M/ISYM" == columnLabel
-                    colNumMIsym = parse(UInt8, nonEmptyLine[1])
-                elseif "BATCH" == columnLabel
-                    colNumBatch = parse(UInt8, nonEmptyLine[1])
-                elseif "I" == columnLabel
-                    colNumIsum = parse(UInt8, nonEmptyLine[1])
-                elseif "SIGI" == columnLabel
-                    colNumSigIsum = parse(UInt8, nonEmptyLine[1])
-                elseif "IPR" == columnLabel
-                    colNumIpr = parse(UInt8, nonEmptyLine[1])
-                elseif "SIGIPR" == columnLabel
-                    colNumSigIpr = parse(UInt8, nonEmptyLine[1])
-                elseif "FRACTIONCALC" == columnLabel
-                    colNumFracCalc = parse(UInt8, nonEmptyLine[1])
-                elseif "ROT" == columnLabel
-                    colNumRot = parse(UInt8, nonEmptyLine[1])
-                elseif "LP" == columnLabel
-                    colNumLP = parse(UInt8, nonEmptyLine[1])
-                end
-            end
-        end
 
         #When we reach this line we know that there are no more column labels to
         #look for so we tell the program to stop looking for column labels.
