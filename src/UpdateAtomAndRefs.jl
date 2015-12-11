@@ -109,15 +109,6 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                     end
                     foundCentroidImage = true
                     break
-                elseif numPartials == -1 #This condition should never be fulfilled I'll delete it once I'm happy that the other code works as expected.
-                    if imageNum != 1 && imageNum != length(imageArray)
-                        diffractionImage.observationList[hkl] = refObservation
-                        foundCentroidImage = true
-                        @printf("*************************WARNING**************************\n")
-                        @printf("Observation %d of Reflection [%d,%d,%d] has been allocated to image %d which is not the correct image.\n",obsNum, hkl[1], hkl[2], hkl[3],imageNum)
-                        @printf("Jonny you need to properly sort this out!!!\n")
-                        @printf("The reflection centroid isn't actually on the image. This is just your crappy work around to continue work.\nSORT IT!!!\n\n")
-                    end
                 end
             end
             #End Section: Add observations to images - Fully observed reflections
