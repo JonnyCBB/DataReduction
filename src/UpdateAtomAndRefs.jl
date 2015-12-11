@@ -41,7 +41,11 @@ volumeRatio(penetrationFraction::Float32) = volumeRatio(penetrationFraction, Flo
 ################################################################################
 #NEED TO ADD METHOD INFORMATION
 ################################################################################
-function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, imageArray::Vector{DiffractionImage}, estimatePartialIntensity::Bool=true)
+function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection},
+    imageArray::Vector{DiffractionImage},
+    estimatePartialIntensity::Bool=true,
+    USE_LOW_FRAC_REF::Bool=false,
+    USE_LOW_FRAC_CALC_IFF_SINGLE_OBS::Bool=true)
     for hkl in keys(hklList)
         reflection = hklList[hkl]
         numOfExistingObs = length(reflection.observations)
@@ -60,153 +64,148 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
             #End Section: Update observation information
             ########################################################################
 
-            ########################################################################
-            #Section: Add observations to images - Fully observed reflections
-            #-----------------------------------------------------------------------
-            #In this section we search for the image on which the current
-            #observation was "seen". This is determined by the image which
-            #containsvthe rotation centroid of the reflection.
-            foundCentroidImage = false # reflection initially hasn't been allocated to an image.
-            for imageNum in refObservation.imageNums #loop through the images
-                if imageNum > length(imageArray)
-                    println(hkl)
-                    error("Image number exceeds image array bounds")
-                end
-                diffractionImage = imageArray[imageNum]
-                if diffractionImage.rotAngleStart <= refObservation.rotCentroid < diffractionImage.rotAngleStop
-                    #Check to see if the current image already has an observation of a given reflection.
-                    #If the reflection hasn't been observed on the diffraction image before then we can
-                    #simply add the reflection to the list. If the reflection has already an observation on
-                    #that image (e.g. a symmetry equivalent) then we can assume that they should have the same
-                    #true intensity but they differ due to measurement error. Therefore the intensity of the
-                    #reflection will be the average of the symmetry equivalents.
-                    if !haskey(diffractionImage.observationList, hkl)
-                        diffractionImage.observationList[hkl] = refObservation
-                    else
-                        duplicateObservation = diffractionImage.observationList[hkl]
-                        #If the fraction of the reflection calculated by the integration software is above a certain
-                        #amount then combine the data for the multiple observations by performing weigthed averages
-                        #of the corresponding data.
-                        if refObservation.fractionCalc >= minFracCalc
-                            newIntensity = (duplicateObservation.fractionCalc * duplicateObservation.intensity + refObservation.fractionCalc * refObservation.intensity)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+            addObsToImage = true # Assume we're initially happy to add the observation to an image.
 
-                            newSigma = sqrt(duplicateObservation.fractionCalc^2 * duplicateObservation.sigI^2 + refObservation.fractionCalc^2 * refObservation.sigI^2/(duplicateObservation.fractionCalc^2 + refObservation.fractionCalc^2))
-
-                            newImageNums = [duplicateObservation.imageNums; refObservation.imageNums]
-                            newImageIntensities = [duplicateObservation.imageIntensities; refObservation.imageIntensities]
-                            newFractionCalc = (duplicateObservation.fractionCalc + refObservation.fractionCalc)/2
-
-                            newRotCentroid = (duplicateObservation.fractionCalc * duplicateObservation.rotCentroid + refObservation.fractionCalc * refObservation.rotCentroid)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
-
-                            ####################################################
-                            #THE MYISYM SHOULD BE SORTED OUT!!!
-                            ####################################################
-                            newMISYM = duplicateObservation.misym
-
-                            #Create the new combined observation object.
-                            diffractionImage.observationList[hkl] = ReflectionObservation(newRotCentroid, newFractionCalc, newMISYM, newIntensity, newSigma, newImageNums, newImageIntensities)
+            #Now we need to check whether we want to add the observation to any
+            #of the images. We first check if the user actually wants to use
+            #reflections where the calculated fraction is low. If not then check
+            #that the calculated fraction of the current observation is below
+            #the threshold. If both of these conditions are satisfied then we
+            #need to check whether the user would like to use the observation if
+            #it is the only observation for that reflection. If there is only
+            #one observation then we will use it. Otherwise we'll only use it if
+            #the current observation has a greater fraction calculated than all
+            #of the other observations.
+            if !USE_LOW_FRAC_REF && refObservation.fractionCalc < minFracCalc
+                if USE_LOW_FRAC_CALC_IFF_SINGLE_OBS
+                    if numOfExistingObs > 1
+                        for otherObs in reflection.observations
+                            if otherObs.fractionCalc > refObservation.fractionCalc
+                                addObsToImage = false
+                                break
+                            end
                         end
                     end
-                    foundCentroidImage = true
-                    break
+                else
+                    addObsToImage = false
                 end
             end
-            #End Section: Add observations to images - Fully observed reflections
-            ########################################################################
 
-            ########################################################################
-            #Section: Add observations to images - Partially observed reflections
-            #-----------------------------------------------------------------------
-            #In this section we find the observations of reflections that were only
-            #seen partially e.g. an observation where we only sampled the last half
-            #of it's intensity on the first image. We then estimate the fraction of
-            #of the reflection that was sampled and estimate the total intensity
-            #from that fraction.
-            #NOTE OF CAUTION:
-            #The current fraction estimation is VERY crude. It erroneously uses the
-            #phi angles in place of what should be true path lengths in reciprocal
-            #space.
-            if !foundCentroidImage #Check if the observation has been allocated to an image
-                allocatedToImage = false
-                imageNums = sort(refObservation.imageNums) #Get the image numbers in order
-                #Check whether the image was only partially observed on the first
-                #image or whether it was partially observed on the first image.
-                if imageNums[1] == 1
-                    imageArray[1].observationList[hkl] = refObservation #Add reflection to the reflection list for the first image
+            if addObsToImage
+                ########################################################################
+                #Section: Add observations to images - Fully observed reflections
+                #-----------------------------------------------------------------------
+                #In this section we search for the image on which the current
+                #observation was "seen". This is determined by the image which
+                #containsvthe rotation centroid of the reflection.
+                foundCentroidImage = false # reflection initially hasn't been allocated to an image.
+                for imageNum in refObservation.imageNums #loop through the images
+                    if imageNum > length(imageArray)
+                        println(hkl)
+                        error("Image number exceeds image array bounds")
+                    end
+                    diffractionImage = imageArray[imageNum]
+                    if diffractionImage.rotAngleStart <= refObservation.rotCentroid < diffractionImage.rotAngleStop
+                        #Check to see if the current image already has an observation of a given reflection.
+                        #If the reflection hasn't been observed on the diffraction image before then we can
+                        #simply add the reflection to the list. If the reflection has already an observation on
+                        #that image (e.g. a symmetry equivalent) then we can assume that they should have the same
+                        #true intensity but they differ due to measurement error. Therefore the intensity of the
+                        #reflection will be the average of the symmetry equivalents.
+                        if !haskey(diffractionImage.observationList, hkl)
+                            diffractionImage.observationList[hkl] = refObservation
+                        else
+                            duplicateObservation = diffractionImage.observationList[hkl]
+                            #If the fraction of the reflection calculated by the integration software is above a certain
+                            #amount then combine the data for the multiple observations by performing weigthed averages
+                            #of the corresponding data.
+                            if refObservation.fractionCalc >= minFracCalc
+                                newIntensity = (duplicateObservation.fractionCalc * duplicateObservation.intensity + refObservation.fractionCalc * refObservation.intensity)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
 
-                    #This is a crude (pretty rubbish) method to estimate the
-                    #penetration of the reciprocal lattice sphere.
-                    lastImageOfObs = imageArray[imageNums[end]]
-                    phiImage = (lastImageOfObs.rotAngleStart + lastImageOfObs.rotAngleStop)/2
-                    phiEdge = imageArray[1].rotAngleStart
-                    spherePenetration = abs(phiImage - phiEdge)
-                    allocatedToImage = true
-                elseif imageNums[end] == length(imageArray)
-                    imageArray[end].observationList[hkl] = refObservation #Add reflection to the reflection list for the last image
+                                newSigma = sqrt(duplicateObservation.fractionCalc^2 * duplicateObservation.sigI^2 + refObservation.fractionCalc^2 * refObservation.sigI^2/(duplicateObservation.fractionCalc^2 + refObservation.fractionCalc^2))
 
-                    #This is a crude (pretty rubbish) method to estimate the
-                    #penetration of the reciprocal lattice sphere.
-                    firstImageOfObs = imageArray[imageNums[1]]
-                    phiImage = (firstImageOfObs.rotAngleStart + firstImageOfObs.rotAngleStop)/2
-                    phiEdge = imageArray[end].rotAngleStop
-                    spherePenetration = abs(phiImage - phiEdge)
-                    allocatedToImage = true
-                else
-                    #If the observation wasn't observed on either the first or last
-                    #image and wasn't allocated any other image in between then
-                    #there is a problem. It could be a problem with the input data
-                    #or with the current program. Not sure which so we'll alert the
-                    #user with a warning message.
-                    #What we'll do here is just allocate it to the image
-                    #corresponding to the calculated reflection centroid.
-                    imageCounter = 0
-                    for diffractionImage in imageArray
-                        imageCounter += 1
-                        ########################################################
-                        #THIS BLOCK OF CODE IS DUPLICATED FROM THE SECTION ABOVE
-                        #THIS SHOULD BE WRITTEN AS A SEPARATE FUNCTION.
-                        if diffractionImage.rotAngleStart <= refObservation.rotCentroid < diffractionImage.rotAngleStop
-                            #Check to see if the current image already has an observation of a given reflection.
-                            #If the reflection hasn't been observed on the diffraction image before then we can
-                            #simply add the reflection to the list. If the reflection has already an observation on
-                            #that image (e.g. a symmetry equivalent) then we can assume that they should have the same
-                            #true intensity but they differ due to measurement error. Therefore the intensity of the
-                            #reflection will be the average of the symmetry equivalents.
-                            if !haskey(diffractionImage.observationList, hkl)
-                                diffractionImage.observationList[hkl] = refObservation
-                                allocatedToImage = true
+                                newImageNums = [duplicateObservation.imageNums; refObservation.imageNums]
+                                newImageIntensities = [duplicateObservation.imageIntensities; refObservation.imageIntensities]
+                                newFractionCalc = (duplicateObservation.fractionCalc + refObservation.fractionCalc)/2
 
-                                println("************************WARNING************************")
-                                @printf("The rotation centroid for observation %d of reflection (%d,%d,%d) was calculated (by the integration software) to be outside of an image on which the observation was observed.\nPlease check that the rotation centroid of this reflection is a valid number.\nThe centroid calculated was %.2f. (Note: The estimated fraction of the observation that was measured is: %.2f).\nThe images for which the observation was measured were:\n",obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
-                                for imageNum in refObservation.imageNums
-                                    @printf("image number: %d. Rotation start and stop: %.2f deg - %.2f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
-                                end
-                                @printf("The observation centroid was allocated to image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
-                            else
-                                duplicateObservation = diffractionImage.observationList[hkl]
-                                #If the fraction of the reflection calculated by
-                                #the integration software is above a certain
-                                #threshold then combine the data for the multiple
-                                #observations by performing weigthed averages of
-                                # the corresponding data.
-                                if refObservation.fractionCalc >= minFracCalc
-                                    newIntensity = (duplicateObservation.fractionCalc * duplicateObservation.intensity + refObservation.fractionCalc * refObservation.intensity)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+                                newRotCentroid = (duplicateObservation.fractionCalc * duplicateObservation.rotCentroid + refObservation.fractionCalc * refObservation.rotCentroid)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
 
-                                    newSigma = sqrt(duplicateObservation.fractionCalc^2 * duplicateObservation.sigI^2 + refObservation.fractionCalc^2 * refObservation.sigI^2/(duplicateObservation.fractionCalc^2 + refObservation.fractionCalc^2))
+                                ####################################################
+                                #THE MYISYM SHOULD BE SORTED OUT!!!
+                                ####################################################
+                                newMISYM = duplicateObservation.misym
 
-                                    newImageNums = [duplicateObservation.imageNums; refObservation.imageNums]
-                                    newImageIntensities = [duplicateObservation.imageIntensities; refObservation.imageIntensities]
-                                    newFractionCalc = (duplicateObservation.fractionCalc + refObservation.fractionCalc)/2
+                                #Create the new combined observation object.
+                                diffractionImage.observationList[hkl] = ReflectionObservation(newRotCentroid, newFractionCalc, newMISYM, newIntensity, newSigma, newImageNums, newImageIntensities)
+                            end
+                        end
+                        foundCentroidImage = true
+                        break
+                    end
+                end
+                #End Section: Add observations to images - Fully observed reflections
+                ########################################################################
 
-                                    newRotCentroid = (duplicateObservation.fractionCalc * duplicateObservation.rotCentroid + refObservation.fractionCalc * refObservation.rotCentroid)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+                ########################################################################
+                #Section: Add observations to images - Partially observed reflections
+                #-----------------------------------------------------------------------
+                #In this section we find the observations of reflections that were only
+                #seen partially e.g. an observation where we only sampled the last half
+                #of it's intensity on the first image. We then estimate the fraction of
+                #of the reflection that was sampled and estimate the total intensity
+                #from that fraction.
+                #NOTE OF CAUTION:
+                #The current fraction estimation is VERY crude. It erroneously uses the
+                #phi angles in place of what should be true path lengths in reciprocal
+                #space.
+                if !foundCentroidImage #Check if the observation has been allocated to an image
+                    allocatedToImage = false
+                    imageNums = sort(refObservation.imageNums) #Get the image numbers in order
+                    #Check whether the image was only partially observed on the first
+                    #image or whether it was partially observed on the first image.
+                    if imageNums[1] == 1
+                        imageArray[1].observationList[hkl] = refObservation #Add reflection to the reflection list for the first image
 
-                                    ####################################################
-                                    #THE MYISYM SHOULD BE SORTED OUT!!!
-                                    ####################################################
-                                    newMISYM = duplicateObservation.misym
+                        #This is a crude (pretty rubbish) method to estimate the
+                        #penetration of the reciprocal lattice sphere.
+                        lastImageOfObs = imageArray[imageNums[end]]
+                        phiImage = (lastImageOfObs.rotAngleStart + lastImageOfObs.rotAngleStop)/2
+                        phiEdge = imageArray[1].rotAngleStart
+                        spherePenetration = abs(phiImage - phiEdge)
+                        allocatedToImage = true
+                    elseif imageNums[end] == length(imageArray)
+                        imageArray[end].observationList[hkl] = refObservation #Add reflection to the reflection list for the last image
 
-                                    #Create the new combined observation object.
-                                    diffractionImage.observationList[hkl] = ReflectionObservation(newRotCentroid, newFractionCalc, newMISYM, newIntensity, newSigma, newImageNums, newImageIntensities)
+                        #This is a crude (pretty rubbish) method to estimate the
+                        #penetration of the reciprocal lattice sphere.
+                        firstImageOfObs = imageArray[imageNums[1]]
+                        phiImage = (firstImageOfObs.rotAngleStart + firstImageOfObs.rotAngleStop)/2
+                        phiEdge = imageArray[end].rotAngleStop
+                        spherePenetration = abs(phiImage - phiEdge)
+                        allocatedToImage = true
+                    else
+                        #If the observation wasn't observed on either the first or last
+                        #image and wasn't allocated any other image in between then
+                        #there is a problem. It could be a problem with the input data
+                        #or with the current program. Not sure which so we'll alert the
+                        #user with a warning message.
+                        #What we'll do here is just allocate it to the image
+                        #corresponding to the calculated reflection centroid.
+                        imageCounter = 0
+                        for diffractionImage in imageArray
+                            imageCounter += 1
+                            ########################################################
+                            #THIS BLOCK OF CODE IS DUPLICATED FROM THE SECTION ABOVE
+                            #THIS SHOULD BE WRITTEN AS A SEPARATE FUNCTION.
+                            if diffractionImage.rotAngleStart <= refObservation.rotCentroid < diffractionImage.rotAngleStop
+                                #Check to see if the current image already has an observation of a given reflection.
+                                #If the reflection hasn't been observed on the diffraction image before then we can
+                                #simply add the reflection to the list. If the reflection has already an observation on
+                                #that image (e.g. a symmetry equivalent) then we can assume that they should have the same
+                                #true intensity but they differ due to measurement error. Therefore the intensity of the
+                                #reflection will be the average of the symmetry equivalents.
+                                if !haskey(diffractionImage.observationList, hkl)
+                                    diffractionImage.observationList[hkl] = refObservation
                                     allocatedToImage = true
 
                                     println("************************WARNING************************")
@@ -215,45 +214,79 @@ function updateRefListAndImageArray!(hklList::Dict{Vector{Int16},Reflection}, im
                                         @printf("image number: %d. Rotation start and stop: %.2f deg - %.2f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
                                     end
                                     @printf("The observation centroid was allocated to image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
+                                else
+                                    duplicateObservation = diffractionImage.observationList[hkl]
+                                    #If the fraction of the reflection calculated by
+                                    #the integration software is above a certain
+                                    #threshold then combine the data for the multiple
+                                    #observations by performing weigthed averages of
+                                    # the corresponding data.
+                                    if refObservation.fractionCalc >= minFracCalc
+                                        newIntensity = (duplicateObservation.fractionCalc * duplicateObservation.intensity + refObservation.fractionCalc * refObservation.intensity)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+
+                                        newSigma = sqrt(duplicateObservation.fractionCalc^2 * duplicateObservation.sigI^2 + refObservation.fractionCalc^2 * refObservation.sigI^2/(duplicateObservation.fractionCalc^2 + refObservation.fractionCalc^2))
+
+                                        newImageNums = [duplicateObservation.imageNums; refObservation.imageNums]
+                                        newImageIntensities = [duplicateObservation.imageIntensities; refObservation.imageIntensities]
+                                        newFractionCalc = (duplicateObservation.fractionCalc + refObservation.fractionCalc)/2
+
+                                        newRotCentroid = (duplicateObservation.fractionCalc * duplicateObservation.rotCentroid + refObservation.fractionCalc * refObservation.rotCentroid)/(duplicateObservation.fractionCalc + refObservation.fractionCalc)
+
+                                        ####################################################
+                                        #THE MYISYM SHOULD BE SORTED OUT!!!
+                                        ####################################################
+                                        newMISYM = duplicateObservation.misym
+
+                                        #Create the new combined observation object.
+                                        diffractionImage.observationList[hkl] = ReflectionObservation(newRotCentroid, newFractionCalc, newMISYM, newIntensity, newSigma, newImageNums, newImageIntensities)
+                                        allocatedToImage = true
+
+                                        println("************************WARNING************************")
+                                        @printf("The rotation centroid for observation %d of reflection (%d,%d,%d) was calculated (by the integration software) to be outside of an image on which the observation was observed.\nPlease check that the rotation centroid of this reflection is a valid number.\nThe centroid calculated was %.2f. (Note: The estimated fraction of the observation that was measured is: %.2f).\nThe images for which the observation was measured were:\n",obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
+                                        for imageNum in refObservation.imageNums
+                                            @printf("image number: %d. Rotation start and stop: %.2f deg - %.2f deg\n", imageNum, imageArray[imageNum].rotAngleStart, imageArray[imageNum].rotAngleStop)
+                                        end
+                                        @printf("The observation centroid was allocated to image: %d.\nRotation start and stop: %.2f deg - %.2f deg\n\n", imageCounter, imageArray[imageCounter].rotAngleStart, imageArray[imageCounter].rotAngleStop)
+                                    end
                                 end
+                                break
                             end
-                            break
+                        end
+                        if imageNums[end] < imageCounter
+                            phiEdge = imageArray[imageNums[end]].rotAngleStop
+                            phiImage = (imageArray[imageNums[1]].rotAngleStart + imageArray[imageNums[1]].rotAngleStop)/2
+                            spherePenetration = abs(phiImage - phiEdge)
+                        elseif imageNums[1] > imageCounter
+                            phiEdge = imageArray[imageNums[1]].rotAngleStart
+                            phiImage = (imageArray[imageNums[end]].rotAngleStart + imageArray[imageNums[end]].rotAngleStop)/2
+                            spherePenetration = abs(phiImage - phiEdge)
+                        else
+                            errMsg = @sprintf("This means that the reflection was observed on the image which coincides with it's centroid, yet hasn't already been allocated an image.\nIf you're seeing this error message then something is VERY wrong with the code and you should contact elspeth.garman@bioch.ox.ac.uk ASAP this problem can be sorted.")
+                            error(errMsg)
                         end
                     end
-                    if imageNums[end] < imageCounter
-                        phiEdge = imageArray[imageNums[end]].rotAngleStop
-                        phiImage = (imageArray[imageNums[1]].rotAngleStart + imageArray[imageNums[1]].rotAngleStop)/2
-                        spherePenetration = abs(phiImage - phiEdge)
-                    elseif imageNums[1] > imageCounter
-                        phiEdge = imageArray[imageNums[1]].rotAngleStart
-                        phiImage = (imageArray[imageNums[end]].rotAngleStart + imageArray[imageNums[end]].rotAngleStop)/2
-                        spherePenetration = abs(phiImage - phiEdge)
-                    else
-                        errMsg = @sprintf("This means that the reflection was observed on the image which coincides with it's centroid, yet hasn't already been allocated an image.\nIf you're seeing this error message then something is VERY wrong with the code and you should contact elspeth.garman@bioch.ox.ac.uk ASAP this problem can be sorted.")
+
+                    #If the observation can't be allocated to an image despite having a measured fraction above the threshold then something is wrong (I don't know what but something is) and it needs to be sorted.
+                    if !allocatedToImage && refObservation.fractionCalc >= minFracCalc
+                        errMsg = @sprintf("Observation %d of reflection (%d,%d,%d) couldn't be allocated to an image.\nThe centroid for this reflection was %.2f and the fraction calculated was %.2f.\nContact elspeth.garman@bioch.ox.ac.uk so this problem can be sorted.\n", obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
                         error(errMsg)
                     end
-                end
 
-                #If the observation can't be allocated to an image despite having a measured fraction above the threshold then something is wrong (I don't know what but something is) and it needs to be sorted.
-                if !allocatedToImage && refObservation.fractionCalc >= minFracCalc
-                    errMsg = @sprintf("Observation %d of reflection (%d,%d,%d) couldn't be allocated to an image.\nThe centroid for this reflection was %.2f and the fraction calculated was %.2f.\nContact elspeth.garman@bioch.ox.ac.uk so this problem can be sorted.\n", obsNum, hkl[1], hkl[2], hkl[3], refObservation.rotCentroid, refObservation.fractionCalc)
-                    error(errMsg)
+                    #Only try to scale up intensity values if they are postive, have
+                    #been allocated to an image and the fraction calculated is below
+                    #the threshold.
+                    if estimatePartialIntensity && refObservation.intensity > 0 && allocatedToImage
+                        sphereDiameter = 2*abs(refObservation.rotCentroid - phiImage) #estimate the diameter of the reciprocal lattice sphere.
+                        spherePathFrac = spherePenetration/sphereDiameter #calculate partiality fraction
+                        intensityFraction = volumeRatio(spherePathFrac) #estimate the fraction of the intensity that was measured
+                        refObservation.intensity = refObservation.intensity/intensityFraction #estimate total intensity
+                        refObservation.sigI = refObservation.sigI/intensityFraction #scale the sigma by the corresponding value
+                        reflection.observations[obsNum] = refObservation # return updated observation information for the reflection.
+                    end
                 end
-
-                #Only try to scale up intensity values if they are postive, have
-                #been allocated to an image and the fraction calculated is below
-                #the threshold.
-                if estimatePartialIntensity && refObservation.intensity > 0 && allocatedToImage
-                    sphereDiameter = 2*abs(refObservation.rotCentroid - phiImage) #estimate the diameter of the reciprocal lattice sphere.
-                    spherePathFrac = spherePenetration/sphereDiameter #calculate partiality fraction
-                    intensityFraction = volumeRatio(spherePathFrac) #estimate the fraction of the intensity that was measured
-                    refObservation.intensity = refObservation.intensity/intensityFraction #estimate total intensity
-                    refObservation.sigI = refObservation.sigI/intensityFraction #scale the sigma by the corresponding value
-                    reflection.observations[obsNum] = refObservation # return updated observation information for the reflection.
-                end
+                #End Section: Add observations to images - Partially observed reflections
+                ########################################################################
             end
-            #End Section: Add observations to images - Partially observed reflections
-            ########################################################################
         end
         hklList[hkl] = reflection # update the reflection in the reflection list
     end

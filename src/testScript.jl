@@ -45,6 +45,8 @@ const minRefPerImage = UInt32(3)
 const displayPlots = false
 
 const minFracCalc = Float32(0.95)
+const USE_LOW_FRAC_REF = false
+const USE_LOW_FRAC_CALC_IFF_SINGLE_OBS = true
 const applyBFacTof0 = true
 
 const kdeStep = Float32(0.0001)
@@ -142,7 +144,7 @@ sortHKLIntoResBins!(resbins, hklList)
 calcElementf0!(elementDict, scatteringAngles, xrayWavelength)
 updateAtomDict!(atomDict, spacegroup)
 f0SqrdDict = calcTotalf0Sqrd(atomDict, scatteringAngles, elementDict)
-updateRefListAndImageArray!(hklList, imageArray, estimateTotalIntensityFromPartialRef)
+updateRefListAndImageArray!(hklList, imageArray, estimateTotalIntensityFromPartialRef, USE_LOW_FRAC_REF, USE_LOW_FRAC_CALC_IFF_SINGLE_OBS)
 calcResbinMeanIntensity!(resbins, f0SqrdDict, hklList)
 changeInBfac, bGradSigma, bIntercept, bInterceptSigma, modalScale, sigmaScale = calcBandScaleParams(hklList, imageArray, resbins, outputImageDir, displayPlots)
 #End Section: Update atom and reflection information
