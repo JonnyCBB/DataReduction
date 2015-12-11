@@ -277,9 +277,9 @@ end
 #(2) If we combine partials we have to account for the fact that they were
 #observed at different times i.e. on different images.
 function inflateObservedSigmas!(imageArray::Vector{DiffractionImage}, hklList::Dict{Vector{Int16},Reflection}, ΔB::Float32, minFracCalc::Float32=Float32(0.99), applyBFacTof0::Bool=true)
-    rotStart = imageArray[1].rotAngleStart
-    rotEnd = imageArray[end].rotAngleStop
-    ϕ = imageArray[1].rotAngleStop - rotStart
+    rotStart = imageArray[1].rotAngleStart # Phi angle at beginning of experiment
+    rotEnd = imageArray[end].rotAngleStop # Phi angle at end of experiment.
+    ϕ = imageArray[1].rotAngleStop - rotStart # Individual image oscillation
     for diffractionImage in imageArray
         #Loop through each observation
         for hkl in keys(diffractionImage.observationList)
