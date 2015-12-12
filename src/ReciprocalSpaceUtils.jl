@@ -498,18 +498,18 @@ function calcBandScaleParams(hklList::Dict{Vector{Int16},Reflection}, imageArray
     Guide.title(plotTitleBdist)
     )
 
-    ### QQplot
-    normalLine(x) = x
-    zScoresCorrB = (correctedBfactors - mean(correctedBfactors))./std(correctedBfactors)
-    Gadfly.plot(qq::QQPair) = Gadfly.plot(
-    layer(x=qq.qx, y=qq.qy, Geom.point, Theme(highlight_width=0px)),
-    layer(normalLine,-3,3, Theme(default_color=getColors[2], line_width=2px)),
-    Guide.xlabel("Theoretical Normal quantiles"), Guide.ylabel("Corrected B factor quantiles"),
-    Guide.title("QQplot for the corrected B factors")
-    )
-    qqplot(x, y) = Gadfly.plot(qqbuild(x, y))
-    qqnorm(x) = qqplot(Normal(), x)
-    qqB = qqnorm(zScoresCorrB)
+    # ### QQplot
+    # normalLine(x) = x
+    # zScoresCorrB = (correctedBfactors - mean(correctedBfactors))./std(correctedBfactors)
+    # Gadfly.plot(qq::QQPair) = Gadfly.plot(
+    # layer(x=qq.qx, y=qq.qy, Geom.point, Theme(highlight_width=0px)),
+    # layer(normalLine,-3,3, Theme(default_color=getColors[2], line_width=2px)),
+    # Guide.xlabel("Theoretical Normal quantiles"), Guide.ylabel("Corrected B factor quantiles"),
+    # Guide.title("QQplot for the corrected B factors")
+    # )
+    # qqplot(x, y) = Gadfly.plot(qqbuild(x, y))
+    # qqnorm(x) = qqplot(Normal(), x)
+    # qqB = qqnorm(zScoresCorrB)
 
     ### plot Scale factor Histogram factor graph
     pltScaleDist = plot(
@@ -527,24 +527,24 @@ function calcBandScaleParams(hklList::Dict{Vector{Int16},Reflection}, imageArray
         outputScalePltAfterLocation = @sprintf("ScaleFac_Plot_After_outlier_removal.pdf")
         outputBDistLocation = @sprintf("BFac_Distribution.pdf")
         outputScaleDistLocation = @sprintf("ScaleFac_Distribution.pdf")
-        outputBQQpltLocation = @sprintf("BFac_QQplot.pdf")
+        # outputBQQpltLocation = @sprintf("BFac_QQplot.pdf")
     else
         outputBPltAfterLocation = @sprintf("%s/BFac_Plot_After_outlier_removal.pdf", outputImageDir)
         outputScalePltAfterLocation = @sprintf("%s/ScaleFac_Plot_After_outlier_removal.pdf", outputImageDir)
         outputBDistLocation = @sprintf("%s/BFac_Distribution.pdf", outputImageDir)
         outputScaleDistLocation = @sprintf("%s/ScaleFac_Distribution.pdf", outputImageDir)
-        outputBQQpltLocation = @sprintf("%s/BFac_QQplot.pdf", outputImageDir)
+        # outputBQQpltLocation = @sprintf("%s/BFac_QQplot.pdf", outputImageDir)
     end
     draw(PDF(outputBPltAfterLocation, 16cm, 9cm), bfactPlt)
     draw(PDF(outputScalePltAfterLocation, 16cm, 9cm), scalefactPlt)
     draw(PDF(outputBDistLocation, 16cm, 9cm), pltBDist)
     draw(PDF(outputScaleDistLocation, 16cm, 9cm), pltScaleDist)
-    draw(PDF(outputBQQpltLocation, 16cm, 9cm), qqB)
+    # draw(PDF(outputBQQpltLocation, 16cm, 9cm), qqB)
 
     if displayPlots
         display(bfactPlt)
         display(pltBDist)
-        display(qqB)
+        # display(qqB)
         display(scalefactPlt)
         display(pltScaleDist)
     end
