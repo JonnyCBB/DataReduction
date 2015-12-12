@@ -40,7 +40,7 @@ const additionalElements = ""
 
 const imageOscillation = Float32(0.1) #degrees of oscillation for each image.
 
-const minRefInResBin = UInt16(50) #choose minimum number of reflections in resolution bin.
+const minRefInResBin = UInt16(100) #choose minimum number of reflections in resolution bin.
 const minRefPerImage = UInt32(3)
 const displayPlots = false
 
@@ -64,10 +64,10 @@ const α = 1e-3
 const β = 2.0
 const κ = 0.0
 
-const NUM_CYCLES = 200
+const NUM_CYCLES = 50
 const MIN_CYCLE_NUM = 5
 const MIN_SCALING_CYCLE_NUM = 3
-const MAX_SCALING_CYCLES = 100
+const MAX_SCALING_CYCLES = 20
 const USE_WEAK_REF_PRIOR = true
 const USE_BAYESIAN_EST_VALUES_AS_FINAL = false
 const WEAK_AMP_THRESHOLD = 3.0
@@ -208,13 +208,25 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
                                    lchoices=Float64[65, 70, 75, 80],
                                    cchoices=Float64[0, 50, 60, 70],
                                    hchoices=linspace(0, 330, 24))
-
+################################################################################
+#Preallocate arrays to create a DataFrame for further statistical analysis.
+allHKLs = collect(keys(hklList))
+CtruncAmp = Vector{AbstractFloat}(NUM_REFLECTIONS)
+CtruncSig = Vector{AbstractFloat}(NUM_REFLECTIONS)
+MyAmp = Vector{AbstractFloat}(NUM_REFLECTIONS)
+MySig = Vector{AbstractFloat}(NUM_REFLECTIONS)
+relAmpDiff = Vector{AbstractFloat}(NUM_REFLECTIONS)
+relSigDiff = Vector{AbstractFloat}(NUM_REFLECTIONS)
+inBounds = Vector{ASCIIString}(NUM_REFLECTIONS)
+resCol = Vector{AbstractFloat}(NUM_REFLECTIONS)
+resbinsCol = Vector{ASCIIString}(NUM_REFLECTIONS)
+################################################################################
 @printf("Beginning Filtering/Smoothing Cycles...\n")
 @printf("=======================================\n")
 for hkl in keys(hklList)
     hklCounter += 1
     @printf("Iteration %d of %d: Reflection [%d,%d,%d]\n",hklCounter, NUM_REFLECTIONS, hkl[1], hkl[2], hkl[3])
-    if hklCounter == 2
+    if hklCounter == 3
         println("Skipping the filtering loop.")
         break
     end
@@ -477,12 +489,17 @@ for hkl in keys(hklList)
                 end
             elseif iterNum > MIN_CYCLE_NUM + endScalingIter
                 if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum == NUM_CYCLES
-                    display(pltsmth)
+                    #display(pltsmth)
                     if any(hklCounter .== refNumsToPlot)
                         smthPltFilename = @sprintf("testplots/SmoothedPlot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
                         draw(PDF(smthPltFilename, 16cm, 9cm), pltsmth)
                     end
                     totalIterNum = iterNum
+                    ############################################################
+                    #Sort data for DataFrame - Ctruncate values
+                    CtruncAmp[hklCounter] = reflection.amplitude
+                    CtruncSig[hklCounter] = reflection.amplitudeSig
+                    ############################################################
                     reflection.amplitude = 1/D * smoothedState.state[1].μ[1]
                     amplitudeVariance = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
                     reflection.amplitudeSig = sqrt(amplitudeVariance[1])
@@ -505,6 +522,27 @@ for hkl in keys(hklList)
                             reflection.amplitude = quadgk(expFunPred, 0.0 , F + NUM_STD_FOR_INTEGRATION * sqrt(varF))[1]
                         end
                     end
+                    ############################################################
+                    #Sort data for DataFrame -All other values
+                    MyAmp[hklCounter] = reflection.amplitude
+                    MySig[hklCounter] = reflection.amplitudeSig
+                    relAmpDiff[hklCounter] = (MyAmp[hklCounter] - CtruncAmp[hklCounter])/MyAmp[hklCounter]
+                    relSigDiff[hklCounter] = (MySig[hklCounter] - CtruncSig[hklCounter])/MySig[hklCounter]
+                    if MyAmp[hklCounter] - 2*MySig[hklCounter] <= CtruncAmp[hklCounter] <=
+                        MyAmp[hklCounter] + 2*MySig[hklCounter]
+                        inBounds[hklCounter] = "true"
+                    else
+                        inBounds[hklCounter] = "false"
+                    end
+                    resCol[hklCounter] = reflection.resolution
+                    findHKL(x) = x == hkl
+                    for bin in resbins
+                        if !isempty(find(findHKL, bin.hkls))
+                            resbinsCol[hklCounter] = @sprintf("%.2f > x >= %.2f", bin.minRes, bin.maxRes)
+                            break
+                        end
+                    end
+                    ############################################################
                     break
                 end
             end
@@ -518,7 +556,7 @@ for hkl in keys(hklList)
     Guide.manual_color_key("Colour Key",["Log Likelihood", "End of scaling cycles"],[getColors[1],getColors[2]]),
     Guide.title(loglikpltTitle)
     )
-    display(pltloglik)
+    #display(pltloglik)
     if any(hklCounter .== refNumsToPlot)
         loglikPltFilename = @sprintf("testplots/LogLikplot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
         draw(PDF(loglikPltFilename, 16cm, 9cm), pltloglik)
@@ -547,4 +585,9 @@ writeOutputFiles(hklList, spacegroup, unitcell, HKL_FILENAME,
 #End Section: Write Output files
 ################################################################################
 
+df = DataFrame(HKL = allHKLs, CAmp = CtruncAmp, CSig = CtruncSig, MAmp = MyAmp,
+               MSig = MySig, RelDiffA = relAmpDiff, RelDiffS = relSigDiff,
+               InBound = inBounds, Resolution = resCol, ResBins = resbinsCol
+               )
+writetable("OutputComparison.csv", df)
 @printf("Program run = SUCCESS :)\n")
