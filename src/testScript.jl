@@ -10,13 +10,13 @@ using StateSpace
 using DataFrames
 import Gadfly.ElementOrFunction
 
-include("ReciprocalSpaceUtils.jl")
-include("ElementDatabase.jl")
-include("MtzdumpHandling.jl")
-include("SequenceFileParser.jl")
-include("UpdateAtomAndRefs.jl")
-include("FilteringUtils.jl")
-include("WriteOutputFiles.jl")
+# include("ReciprocalSpaceUtils.jl")
+# include("ElementDatabase.jl")
+# include("MtzdumpHandling.jl")
+# include("SequenceFileParser.jl")
+# include("UpdateAtomAndRefs.jl")
+# include("FilteringUtils.jl")
+# include("WriteOutputFiles.jl")
 
 ######### Inputs ##########
 const xrayEnergy = Float32(12.7) #Set X-ray Energy
@@ -46,7 +46,7 @@ const displayPlots = false
 
 const minFracCalc = Float32(0.95)
 const USE_LOW_FRAC_REF = false
-const USE_LOW_FRAC_CALC_IFF_SINGLE_OBS = true
+const USE_LOW_FRAC_CALC_IFF_SINGLE_OBS = false
 const applyBFacTof0 = true
 
 const kdeStep = Float32(0.0001)
@@ -197,6 +197,7 @@ getInitialAmplitudes!(hklList, refAmpDict)
 #Section: Iteration section treating reflections independently
 #-------------------------------------------------------------------------------
 const NUM_IMAGES = length(imageArray)
+const NUM_REFLECTIONS = length(hklList)
 #scaleFactor = modalScale
 scaleFactor = 1/40.5778 #Value I obtained from CTruncate
 hklCounter = 0
@@ -207,9 +208,12 @@ getColors = distinguishable_colors(numPlotColours, Color[LCHab(70, 60, 240)],
                                    cchoices=Float64[0, 50, 60, 70],
                                    hchoices=linspace(0, 330, 24))
 
+@printf("Beginning Filtering/Smoothing Cycles...\n")
+@printf("=======================================\n")
 for hkl in keys(hklList)
     hklCounter += 1
-    if hklCounter == 1
+    @printf("Iteration %d of %d: Reflection [%d,%d,%d]\n",hklCounter, NUM_REFLECTIONS, hkl[1], hkl[2], hkl[3])
+    if hklCounter == 2
         println("Skipping the filtering loop.")
         break
     end
@@ -304,7 +308,6 @@ for hkl in keys(hklList)
         else
             amplitudeStrength = mean(initialGuess)[1]/sqrt(cov(initialGuess)[1])
         end
-        println("Amplitude Strength: ", amplitudeStrength)
         ########################################################################
         #Section: Perform Filtering
         #-----------------------------------------------------------------------
@@ -432,10 +435,10 @@ for hkl in keys(hklList)
         end
         smoothedState = FilteredState(filtState.observations, smooth_dist, loglik)
         loglikVals[iterNum] = smoothedState.loglik
-        println()
-        println("Interation: ", iterNum)
-        println("Mean estimate is: ", vec(mean(smoothedState))[1])
-        println("Sigma value is: ", sqrt(vec(cov(smoothedState))[1]))
+        # println()
+        # println("Interation: ", iterNum)
+        # println("Mean estimate is: ", vec(mean(smoothedState))[1])
+        # println("Sigma value is: ", sqrt(vec(cov(smoothedState))[1]))
 
 
         ########################################################################
@@ -449,10 +452,14 @@ for hkl in keys(hklList)
             f = "Smoothed values"
             )
 
+        smthPltTitle = @sprintf("Reflection [%d,%d,%d]",hkl[1], hkl[2], hkl[3])
         pltsmth = plot(
         #layer(x=1:NUM_IMAGES, y=zeros(NUM_IMAGES), Geom.line, Theme(default_color=colorant"black")),
         layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
-        layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
+        layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px)),
+        Guide.xlabel("Image Number"), Guide.ylabel("Amplitude"),
+        Guide.manual_color_key("Colour Key",["Smoothed estimate", "Observation Occurence"],[getColors[1],getColors[2]]),
+        Guide.title(smthPltTitle)
         )
         #End Mini Section: Plot Smoothing Results
         ########################################################################
@@ -498,13 +505,17 @@ for hkl in keys(hklList)
             end
         end
     end
+    loglikpltTitle = @sprintf("Log Likelihood VS Cycle Number")
     pltloglik = plot(
     layer(x=1:totalIterNum, y=loglikVals[1:totalIterNum], Geom.line, Theme(line_width=4px)),
-    layer(xintercept=[endScalingIter], Geom.vline, Theme(default_color=getColors[2], line_width=4px))
+    layer(xintercept=[endScalingIter], Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
+    Guide.xlabel("Cycle Number"), Guide.ylabel("Log Likelihood (LL)"),
+    Guide.manual_color_key("Colour Key",["LL", "End of scaling cycles"],[getColors[1],getColors[2]]),
+    Guide.title(loglikpltTitle)
     )
     display(pltloglik)
 end
-
+@printf("End of filtering/smoothing cycles.\n\n")
 #End Section: Iteration section treating reflections independently
 ################################################################################
 
@@ -519,8 +530,12 @@ end
 ################################################################################
 #Section: Write Output files
 #-------------------------------------------------------------------------------
+@printf("Writing output files...\n")
 writeOutputFiles(hklList, spacegroup, unitcell, HKL_FILENAME,
                  F2MTZ_INPUT_FILENAME, PROJECT_NAME, CRYSTAL_NAME, DATASET_NAME,
                  SORTMTZ_INPUT_FILENAME, MTZOUT_FILENAME)
+@printf("Finished Writing output files.\n\n")
 #End Section: Write Output files
 ################################################################################
+
+@printf("Program run = SUCCESS :)\n")
