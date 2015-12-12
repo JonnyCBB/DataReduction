@@ -221,6 +221,7 @@ relSigDiff = Vector{AbstractFloat}(NUM_REFLECTIONS)
 inBounds = Vector{ASCIIString}(NUM_REFLECTIONS)
 resCol = Vector{AbstractFloat}(NUM_REFLECTIONS)
 resbinsCol = Vector{ASCIIString}(NUM_REFLECTIONS)
+weakRefCol = Vector{ASCIIString}(NUM_REFLECTIONS)
 ################################################################################
 @printf("Beginning Filtering/Smoothing Cycles...\n")
 @printf("=======================================\n")
@@ -543,6 +544,11 @@ for hkl in keys(hklList)
                             break
                         end
                     end
+                    if MyAmp[hklCounter]/MySig[hklCounter] < WEAK_AMP_THRESHOLD
+                        weakRefCol[hklCounter] = "true"
+                    else
+                        weakRefCol[hklCounter] = "false"
+                    end
                     ############################################################
                     break
                 end
@@ -585,10 +591,11 @@ writeOutputFiles(hklList, spacegroup, unitcell, HKL_FILENAME,
 @printf("Finished Writing output files.\n\n")
 #End Section: Write Output files
 ################################################################################
-
 df = DataFrame(HKL = allHKLs, CAmp = CtruncAmp, CSig = CtruncSig, MAmp = MyAmp,
                MSig = MySig, RelDiffA = relAmpDiff, RelDiffS = relSigDiff,
-               InBound = inBounds, Resolution = resCol, ResBins = resbinsCol
+               WeakRef = weakRefCol, InBound = inBounds, Resolution = resCol, ResBins = resbinsCol
                )
-writetable("OutputComparison.csv", df)
+if hklCounter >= NUM_REFLECTIONS
+    writetable("OutputComparison.csv", df)
+end
 @printf("Program run = SUCCESS :)\n")
