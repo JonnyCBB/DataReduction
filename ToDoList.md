@@ -1,5 +1,5 @@
 ### Next steps:
-
+-   Write code to check if the first N observations are negative but there are non-negative intensity values after. If this is the case then don't use the first N negative observations.
 -	Write tests for input parser/Create structure for Reflection/SpaceGroup/Resbin types.
 
 ### Inputs still to add:
