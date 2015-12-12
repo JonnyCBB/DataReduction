@@ -455,7 +455,7 @@ for hkl in keys(hklList)
         smthPltTitle = @sprintf("Reflection [%d,%d,%d]",hkl[1], hkl[2], hkl[3])
         pltsmth = plot(
         #layer(x=1:NUM_IMAGES, y=zeros(NUM_IMAGES), Geom.line, Theme(default_color=colorant"black")),
-        layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
+        layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=2px)),
         layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px)),
         Guide.xlabel("Image Number"), Guide.ylabel("Amplitude"),
         Guide.manual_color_key("Colour Key",["Smoothed estimate", "Observation Occurence"],[getColors[1],getColors[2]]),
@@ -477,6 +477,8 @@ for hkl in keys(hklList)
             elseif iterNum > MIN_CYCLE_NUM + endScalingIter
                 if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum == NUM_CYCLES
                     display(pltsmth)
+                    smthPltFilename = @sprintf("testplots/SmoothedPlot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
+                    draw(PDF(smthPltFilename, 16cm, 9cm), pltsmth)
                     totalIterNum = iterNum
                     reflection.amplitude = 1/D * smoothedState.state[1].μ[1]
                     amplitudeVariance = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
@@ -509,11 +511,13 @@ for hkl in keys(hklList)
     pltloglik = plot(
     layer(x=1:totalIterNum, y=loglikVals[1:totalIterNum], Geom.line, Theme(line_width=4px)),
     layer(xintercept=[endScalingIter], Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
-    Guide.xlabel("Cycle Number"), Guide.ylabel("Log Likelihood (LL)"),
-    Guide.manual_color_key("Colour Key",["LL", "End of scaling cycles"],[getColors[1],getColors[2]]),
+    Guide.xlabel("Cycle Number"), Guide.ylabel("Log Likelihood"),
+    Guide.manual_color_key("Colour Key",["Log Likelihood", "End of scaling cycles"],[getColors[1],getColors[2]]),
     Guide.title(loglikpltTitle)
     )
     display(pltloglik)
+    loglikPltFilename = @sprintf("testplots/LogLikplot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
+    draw(PDF(loglikPltFilename, 16cm, 9cm), pltloglik)
 end
 @printf("End of filtering/smoothing cycles.\n\n")
 #End Section: Iteration section treating reflections independently
