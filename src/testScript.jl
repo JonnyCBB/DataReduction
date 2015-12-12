@@ -68,11 +68,12 @@ const NUM_CYCLES = 50
 const MIN_CYCLE_NUM = 5
 const MIN_SCALING_CYCLE_NUM = 3
 const MAX_SCALING_CYCLES = 20
+const INITIAL_VALUE_TOL = 1.0
 const USE_WEAK_REF_PRIOR = true
 const USE_BAYESIAN_EST_VALUES_AS_FINAL = false
 const WEAK_AMP_THRESHOLD = 3.0
 const NUM_STD_FOR_INTEGRATION = 6.0
-const LOG_LIK_THRESHOLD = 1e-3
+const LOG_LIK_THRESHOLD = 1e-2
 const USE_RICE_ESTIMATE = true
 
 const ANOMALOUS = false
@@ -480,7 +481,7 @@ for hkl in keys(hklList)
         ########################################################################
         if iterNum > MIN_SCALING_CYCLE_NUM
             if scalingCycles
-                if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_SCALING_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum > MAX_SCALING_CYCLES
+                if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_SCALING_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum > MAX_SCALING_CYCLES || abs(1/D * smoothedState.state[1].μ[1] - oldInitState.μ[1]) < INITIAL_VALUE_TOL
                     endScalingIter = iterNum
                     scalingCycles = false
                     if iterNum > MAX_SCALING_CYCLES && abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_SCALING_CYCLE_NUM]) >= LOG_LIK_THRESHOLD
