@@ -198,6 +198,7 @@ getInitialAmplitudes!(hklList, refAmpDict)
 #-------------------------------------------------------------------------------
 const NUM_IMAGES = length(imageArray)
 const NUM_REFLECTIONS = length(hklList)
+refNumsToPlot = rand(1:NUM_REFLECTIONS,100)
 #scaleFactor = modalScale
 scaleFactor = 1/40.5778 #Value I obtained from CTruncate
 hklCounter = 0
@@ -477,8 +478,10 @@ for hkl in keys(hklList)
             elseif iterNum > MIN_CYCLE_NUM + endScalingIter
                 if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum == NUM_CYCLES
                     display(pltsmth)
-                    smthPltFilename = @sprintf("testplots/SmoothedPlot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
-                    draw(PDF(smthPltFilename, 16cm, 9cm), pltsmth)
+                    if any(hklCounter .== refNumsToPlot)
+                        smthPltFilename = @sprintf("testplots/SmoothedPlot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
+                        draw(PDF(smthPltFilename, 16cm, 9cm), pltsmth)
+                    end
                     totalIterNum = iterNum
                     reflection.amplitude = 1/D * smoothedState.state[1].μ[1]
                     amplitudeVariance = D * cov(smoothedState.state[1]) * D + m.V + (oldInitState.μ - newStateVec) * (oldInitState.μ - newStateVec)'
@@ -516,8 +519,10 @@ for hkl in keys(hklList)
     Guide.title(loglikpltTitle)
     )
     display(pltloglik)
-    loglikPltFilename = @sprintf("testplots/LogLikplot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
-    draw(PDF(loglikPltFilename, 16cm, 9cm), pltloglik)
+    if any(hklCounter .== refNumsToPlot)
+        loglikPltFilename = @sprintf("testplots/LogLikplot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
+        draw(PDF(loglikPltFilename, 16cm, 9cm), pltloglik)
+    end
 end
 @printf("End of filtering/smoothing cycles.\n\n")
 #End Section: Iteration section treating reflections independently
