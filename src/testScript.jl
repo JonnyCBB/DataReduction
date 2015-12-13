@@ -29,7 +29,7 @@ const sfFileLocation = "integration_scaling_files\\test450images_scaled1_withSeq
 const useSeqFile = true #Choose whether to use a sequence file to get variance and B-factor estimates
 const separateSymEquivs = false #Merge symmetry equivalents or keep them separate.
 const sigIDiffTol = Float32(0.1) #Tolerance level for difference between sigIpr and sigIsum
-const numOfRefs = Int32(20000) #Number of reflections to be used in data reduction analysis.
+const numOfRefs = Int32(-1) #Number of reflections to be used in data reduction analysis.
 
 const intensityType = "Combined" #How to deal with Ipr and Isum
 const numMtzColsFor1stRefLine = UInt8(9) #Number of columns in 1st MTZ Dump line for reflection information
@@ -228,7 +228,7 @@ weakRefCol = Vector{ASCIIString}(NUM_REFLECTIONS)
 for hkl in keys(hklList)
     hklCounter += 1
     @printf("Iteration %d of %d: Reflection [%d,%d,%d]\n",hklCounter, NUM_REFLECTIONS, hkl[1], hkl[2], hkl[3])
-    if hklCounter == 2#NUM_REFLECTIONS + 1
+    if hklCounter == NUM_REFLECTIONS + 1
         println("Skipping the filtering loop.")
         break
     end
@@ -269,7 +269,7 @@ for hkl in keys(hklList)
             obsCount += 1
             push!(imagesWithActualObs, imgNum)
             if diffImage.observationList[hkl].intensity >= 0.0
-                anyPostiveInts = true
+                anyPositiveInts = true
             end
             if diffImage.observationList[hkl].intensity < 0.0
                 anyNegativeInts = true
