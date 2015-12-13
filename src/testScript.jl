@@ -10,13 +10,13 @@ using StateSpace
 using DataFrames
 import Gadfly.ElementOrFunction
 
-# include("ReciprocalSpaceUtils.jl")
-# include("ElementDatabase.jl")
-# include("MtzdumpHandling.jl")
-# include("SequenceFileParser.jl")
-# include("UpdateAtomAndRefs.jl")
-# include("FilteringUtils.jl")
-# include("WriteOutputFiles.jl")
+include("ReciprocalSpaceUtils.jl")
+include("ElementDatabase.jl")
+include("MtzdumpHandling.jl")
+include("SequenceFileParser.jl")
+include("UpdateAtomAndRefs.jl")
+include("FilteringUtils.jl")
+include("WriteOutputFiles.jl")
 
 ######### Inputs ##########
 const xrayEnergy = Float32(12.7) #Set X-ray Energy
@@ -52,7 +52,7 @@ const applyBFacTof0 = true
 const kdeStep = Float32(0.0001)
 const keepPercentageScaleData = Float32(0.95)
 
-const outputImageDir = "plots"
+const outputImageDir = "plots3"
 
 const processVarCoeff = 1e0
 const estimatedObservationVar = 1e6
@@ -64,17 +64,17 @@ const α = 1e-3
 const β = 2.0
 const κ = 0.0
 
-const NUM_CYCLES = 50
+const NUM_CYCLES = 200
 const MIN_CYCLE_NUM = 5
 const MIN_SCALING_CYCLE_NUM = 3
-const MAX_SCALING_CYCLES = 20
-const INITIAL_VALUE_TOL = 1.0
-const USE_WEAK_REF_PRIOR = true
+const MAX_SCALING_CYCLES = 100
+const INITIAL_VALUE_TOL = 1e0 # Need a more informative name for this.
+const USE_WEAK_REF_PRIOR = false
 const USE_BAYESIAN_EST_VALUES_AS_FINAL = false
-const WEAK_AMP_THRESHOLD = 3.0
-const NUM_STD_FOR_INTEGRATION = 6.0
-const LOG_LIK_THRESHOLD = 1e-2
-const USE_RICE_ESTIMATE = true
+const WEAK_AMP_THRESHOLD = 2.0
+const NUM_STD_FOR_INTEGRATION = 3.0
+const LOG_LIK_THRESHOLD = 1e0
+const USE_RICE_ESTIMATE = false
 
 const ANOMALOUS = false
 
@@ -83,7 +83,7 @@ const F2MTZ_INPUT_FILENAME = "f2mtzInput.dat"
 const PROJECT_NAME = "Filtering_Test"
 const CRYSTAL_NAME = "Insulin_0259"
 const DATASET_NAME = "Insulin_0259"
-const MTZOUT_FILENAME = "Reduction.mtz"
+const MTZOUT_FILENAME = "Reduction3.mtz"
 const SORTMTZ_INPUT_FILENAME ="SortmtzInput.txt"
 ################################################################################
 #Assertions
@@ -199,7 +199,7 @@ getInitialAmplitudes!(hklList, refAmpDict)
 #-------------------------------------------------------------------------------
 const NUM_IMAGES = length(imageArray)
 const NUM_REFLECTIONS = length(hklList)
-refNumsToPlot = rand(1:NUM_REFLECTIONS,100)
+refNumsToPlot = collect(1:300)
 #scaleFactor = modalScale
 scaleFactor = 1/40.5778 #Value I obtained from CTruncate
 hklCounter = 0
@@ -228,7 +228,7 @@ weakRefCol = Vector{ASCIIString}(NUM_REFLECTIONS)
 for hkl in keys(hklList)
     hklCounter += 1
     @printf("Iteration %d of %d: Reflection [%d,%d,%d]\n",hklCounter, NUM_REFLECTIONS, hkl[1], hkl[2], hkl[3])
-    if hklCounter == 3
+    if hklCounter == 2#NUM_REFLECTIONS + 1
         println("Skipping the filtering loop.")
         break
     end
@@ -260,16 +260,37 @@ for hkl in keys(hklList)
     #observations we then break out of the loop.
     numRefObs = length(reflection.observations)
     imagesWithActualObs = Vector{Int64}()
+    anyPositiveInts = false
+    anyNegativeInts = false
     for imgNum in 1:NUM_IMAGES
         diffImage = imageArray[imgNum]
         obsCount = 0
         if haskey(diffImage.observationList, hkl)
             obsCount += 1
             push!(imagesWithActualObs, imgNum)
+            if diffImage.observationList[hkl].intensity >= 0.0
+                anyPostiveInts = true
+            end
+            if diffImage.observationList[hkl].intensity < 0.0
+                anyNegativeInts = true
+            end
             observationVec[imgNum] = diffImage.observationList[hkl].intensity
             observationVarVec[imgNum] = measurementVarCoeff * diffImage.observationList[hkl].sigI^2
             if obsCount == numRefObs
                 break
+            end
+        end
+    end
+
+    #Remove any negative intensities if there are multiple observations and
+    #some are postive.
+    if length(imagesWithActualObs) > 1 && anyNegativeInts && anyPositiveInts
+        for i in length(imagesWithActualObs):-1:1
+            imgNum = imagesWithActualObs[i]
+            if imageArray[imgNum].observationList[hkl].intensity < 0.0
+                observationVec[imgNum] = NaN
+                observationVarVec[imgNum] = estimatedObservationVar
+                splice!(imagesWithActualObs, i)
             end
         end
     end
@@ -389,18 +410,18 @@ for hkl in keys(hklList)
         ########################################################################
         #Mini Section: Plot Filtering Results
         #-----------------------------------------------------------------------
-        df_fs = DataFrame(
-            x = 0:NUM_IMAGES,
-            y = vec(mean(filtState)),
-            ymin = vec(mean(filtState)) - 2*sqrt(vec(cov(filtState))),
-            ymax = vec(mean(filtState)) + 2*sqrt(vec(cov(filtState))),
-            f = "Filtered values"
-            )
-
-        pltflt = plot(
-        layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
-        layer(df_fs, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
-        )
+        # df_fs = DataFrame(
+        #     x = 0:NUM_IMAGES,
+        #     y = vec(mean(filtState)),
+        #     ymin = vec(mean(filtState)) - 2*sqrt(vec(cov(filtState))),
+        #     ymax = vec(mean(filtState)) + 2*sqrt(vec(cov(filtState))),
+        #     f = "Filtered values"
+        #     )
+        #
+        # pltflt = plot(
+        # layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
+        # layer(df_fs, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px))
+        # )
         #display(pltflt)
         #End Mini Section: Plot Filtering Results
         ########################################################################
@@ -459,23 +480,23 @@ for hkl in keys(hklList)
         ########################################################################
         #Mini Section: Plot Smoothing Results
         #-----------------------------------------------------------------------
-        df_ss = DataFrame(
-            x = 1:NUM_IMAGES,
-            y = vec(mean(smoothedState)),
-            ymin = vec(mean(smoothedState)) - 2*sqrt(vec(cov(smoothedState))),
-            ymax = vec(mean(smoothedState)) + 2*sqrt(vec(cov(smoothedState))),
-            f = "Smoothed values"
-            )
-
-        smthPltTitle = @sprintf("Reflection [%d,%d,%d]",hkl[1], hkl[2], hkl[3])
-        pltsmth = plot(
-        #layer(x=1:NUM_IMAGES, y=zeros(NUM_IMAGES), Geom.line, Theme(default_color=colorant"black")),
-        layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=2px)),
-        layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px)),
-        Guide.xlabel("Image Number"), Guide.ylabel("Amplitude"),
-        Guide.manual_color_key("Colour Key",["Smoothed estimate", "Observation Occurence"],[getColors[1],getColors[2]]),
-        Guide.title(smthPltTitle)
-        )
+        # df_ss = DataFrame(
+        #     x = 1:NUM_IMAGES,
+        #     y = vec(mean(smoothedState)),
+        #     ymin = vec(mean(smoothedState)) - 2*sqrt(vec(cov(smoothedState))),
+        #     ymax = vec(mean(smoothedState)) + 2*sqrt(vec(cov(smoothedState))),
+        #     f = "Smoothed values"
+        #     )
+        #
+        # smthPltTitle = @sprintf("Reflection [%d,%d,%d]",hkl[1], hkl[2], hkl[3])
+        # pltsmth = plot(
+        # #layer(x=1:NUM_IMAGES, y=zeros(NUM_IMAGES), Geom.line, Theme(default_color=colorant"black")),
+        # layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=2px)),
+        # layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px)),
+        # Guide.xlabel("Image Number"), Guide.ylabel("Amplitude"),
+        # Guide.manual_color_key("Colour Key",["Smoothed estimate", "Observation Occurence"],[getColors[1],getColors[2]]),
+        # Guide.title(smthPltTitle)
+        # )
         #End Mini Section: Plot Smoothing Results
         ########################################################################
         #End Section: Perform Smoothing
@@ -491,11 +512,6 @@ for hkl in keys(hklList)
                 end
             elseif iterNum > MIN_CYCLE_NUM + endScalingIter
                 if abs(loglikVals[iterNum] - loglikVals[iterNum - MIN_CYCLE_NUM]) < LOG_LIK_THRESHOLD || iterNum == NUM_CYCLES
-                    #display(pltsmth)
-                    if any(hklCounter .== refNumsToPlot)
-                        smthPltFilename = @sprintf("testplots/SmoothedPlot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
-                        draw(PDF(smthPltFilename, 16cm, 9cm), pltsmth)
-                    end
                     totalIterNum = iterNum
                     ############################################################
                     #Sort data for DataFrame - Ctruncate values
@@ -549,13 +565,35 @@ for hkl in keys(hklList)
                     else
                         weakRefCol[hklCounter] = "false"
                     end
+                    df_ss = DataFrame(
+                        x = 1:NUM_IMAGES,
+                        y = vec(mean(smoothedState)),
+                        ymin = vec(mean(smoothedState)) - 2*sqrt(vec(cov(smoothedState))),
+                        ymax = vec(mean(smoothedState)) + 2*sqrt(vec(cov(smoothedState))),
+                        f = "Smoothed values"
+                        )
+
+                    smthPltTitle = @sprintf("Reflection [%d,%d,%d]. Resolution: %.2fA",hkl[1], hkl[2], hkl[3], reflection.resolution)
+                    pltsmth = plot(
+                    layer(x=1:NUM_IMAGES, y=CtruncAmp[hklCounter]*ones(NUM_IMAGES), Geom.line, Theme(default_color=getColors[3])),
+                    layer(xintercept=imagesWithActualObs, Geom.vline, Theme(default_color=getColors[2], line_width=2px)),
+                    layer(df_ss, x=:x, y=:y, ymin=:ymin, ymax=:ymax, Geom.line, Geom.ribbon, Theme(line_width=4px)),
+                    Guide.xlabel("Image Number"), Guide.ylabel("Amplitude"),
+                    Guide.manual_color_key("Colour Key",["Smoothed estimate", "Observation Occurence"],[getColors[1],getColors[2]]),
+                    Guide.title(smthPltTitle)
+                    )
+                    #display(pltsmth)
+                    if any(hklCounter .== refNumsToPlot)
+                        smthPltFilename = @sprintf("testplots3/SmoothedPlot_%d,%d,%d_res%.0f.pdf",hkl[1], hkl[2], hkl[3],reflection.resolution)
+                        draw(PDF(smthPltFilename, 16cm, 9cm), pltsmth)
+                    end
                     ############################################################
                     break
                 end
             end
         end
     end
-    loglikpltTitle = @sprintf("Log Likelihood VS Cycle Number")
+    loglikpltTitle = @sprintf("Log Likelihood VS Cycle Number. Ref [%d,%d,%d]. Resolution: %.2fA",hkl[1], hkl[2], hkl[3], reflection.resolution)
     pltloglik = plot(
     layer(x=1:totalIterNum, y=loglikVals[1:totalIterNum], Geom.line, Theme(line_width=4px)),
     layer(xintercept=[endScalingIter], Geom.vline, Theme(default_color=getColors[2], line_width=4px)),
@@ -565,7 +603,7 @@ for hkl in keys(hklList)
     )
     #display(pltloglik)
     if any(hklCounter .== refNumsToPlot)
-        loglikPltFilename = @sprintf("testplots/LogLikplot_%d,%d,%d.pdf",hkl[1], hkl[2], hkl[3])
+        loglikPltFilename = @sprintf("testplots3/LogLikplot_%d,%d,%d_res%.0f.pdf",hkl[1], hkl[2], hkl[3],reflection.resolution)
         draw(PDF(loglikPltFilename, 16cm, 9cm), pltloglik)
     end
 end
@@ -596,6 +634,6 @@ df = DataFrame(HKL = allHKLs, CAmp = CtruncAmp, CSig = CtruncSig, MAmp = MyAmp,
                WeakRef = weakRefCol, InBound = inBounds, Resolution = resCol, ResBins = resbinsCol
                )
 if hklCounter >= NUM_REFLECTIONS
-    writetable("OutputComparison.csv", df)
+    writetable("OutputComparison3.csv", df)
 end
 @printf("Program run = SUCCESS :)\n")
