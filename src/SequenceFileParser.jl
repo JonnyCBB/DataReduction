@@ -713,7 +713,7 @@ function getAtomOccurence!(atomOccurenceDict::Dict{ASCIIString, UInt32}, residue
     atomOccurenceDict["O"] += residue.oxygens
     atomOccurenceDict["P"] += residue.phosphoruses
     atomOccurenceDict["S"] += residue.sulphurs
-    atomOccurenceDict["H"] += residue.seleniums
+    atomOccurenceDict["SE"] += residue.seleniums
 end
 
 function parseCommentLine!(residueType::ResidueType, line::ASCIIString)
