@@ -1,3 +1,0 @@
-nref 20
-symmetry
-end
