@@ -36,7 +36,7 @@ Now we use the function runMtzdump on an MTZ file with the name "MyMTZFile.mtz"
 
 `mtzOutput` is now an ASCIIString type object containing the output from the MTZDump run.
 """
-function runMtzdump(mtzFile::ASCIIString, numRef::Int32=Float32(20))
+function runMtzdump(mtzFile::ASCIIString, numRef::Int32=Int32(20))
     inputParams = MtzdumpParams("mtzdumpinputs.txt", numRef) #Create MtzdumpParams object
     mtzdumpInputFile = open(inputParams.inputFilename,"w") #Create text file for writing
     write(mtzdumpInputFile, @sprintf("nref %d\r\n", inputParams.nref)) # write number of reflections line
